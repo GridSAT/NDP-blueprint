@@ -4,11 +4,32 @@
 class Set:
 
     clauses = []
+    names_map = {}
+
     def __init__(self):
+        self.names_map = {}
         return
 
     def sort_clauses(self):
         self.clauses = sorted(self.clauses)
+
+
+    def rename_vars(self):
+        # start from 0
+        id = 1
+        for cl in self.clauses:
+            for i in range(0, len(cl.raw)):
+                sign = (int) (cl.raw[i] / abs(cl.raw[i]))
+                new = self.names_map.get(abs(cl.raw[i]), None)
+                if new == None:
+                    new = id
+                    self.names_map[abs(cl.raw[i])] = new
+                    id = id + 1
+                    
+                cl.raw[i] = new * sign
+
+                
+
 
     def print_set(self):
         for cl in self.clauses:
@@ -52,8 +73,11 @@ def process_set(Set):
     # sort the clauses
     Set.sort_clauses()
     Set.print_set()
+    print('----------')
 
     # rename
+    Set.rename_vars()
+    Set.print_set()
 
     # check L.O. conditions
 
