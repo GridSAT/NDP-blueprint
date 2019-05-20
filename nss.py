@@ -1,12 +1,31 @@
+from queue import SimpleQueue
+from graphviz import Digraph
+
 # config
 
 # todo: handle if input has [x, -x]
+
+# a class to represent the CNF graph
+class CnfGraph:
+
+    content = None
+    
+
+    def __init__(self, content = None):
+        self.content = content
+
+    def print_node(self):
+        print(self.content)
+
 
 class Set:
 
     clauses = []
     names_map = {}
     value = None    # unknown, not evaluated
+    left = None
+    right = None
+    id = 0
 
     def __init__(self):
         self.names_map = {}
@@ -80,7 +99,7 @@ class Set:
             # rename
             print('Renaming...')
             self.rename_vars()
-            self.print_set()
+            # self.print_set()
             print('===========')
 
             # i = i + 1
@@ -146,10 +165,30 @@ class Set:
         return (left_set, right_set)
 
 
-    def print_set(self):
+    def to_string(self):
+
+        # if the set evaluates to a value
+        if self.value != None:
+            res = str(self.value)[0]
+            return res
+
+        # This shouldn't ever happen. If the set doesn't have a value, then it must has clauses
+        if len(self.clauses) == 0:
+            raise ValueError('A set with empty clauses and no evaluated values!')
+
+        res_arr = []
         for cl in self.clauses:
-            print(cl.raw, end =" ")
-        print()
+            if len(cl.raw):
+                res_arr.append('(' + ' | '.join(map(str, cl.raw)) + ')')
+
+        res = ' & '.join(res_arr)
+        return res
+        
+
+    def print_set(self):
+        print(self.to_string())
+
+
 
 class Clause:
 
@@ -192,18 +231,71 @@ class Clause:
         x = sorted(self.raw, key = abs)
         self.raw = x
 
-def process_set(Set):
 
-    Set.print_set()
-    print('===========')
-    Set.to_lo_condition()
-    print('In L.O condition:')
-    Set.print_set()
 
-    # evaluate
-    (s1, s2) = Set.evaluate()
-    s1.print_set()
-    s2.print_set()
+
+def draw_graph(dot):
+    print(dot.source)
+    #dot.render('out.svg', view=True)
+
+
+def process_set(root_set):
+
+    # cnf_set.print_set()
+    # print('===========')
+    
+    # print('In L.O condition:')
+    # cnf_set.print_set()
+    
+    # graph drawing
+    node_id = 1
+    dot = Digraph(comment='The CNF Tree', format='svg')
+
+    nodes_queue = SimpleQueue()
+    nodes_queue.put(root_set)
+    root_set.id = node_id    
+    dot.node(str(root_set.id), root_set.to_string())
+    node_id += 1
+
+    while not nodes_queue.empty():
+        cnf_set = nodes_queue.get()
+
+        # to l.o. condition
+        setbefore = cnf_set.to_string()
+        cnf_set.to_lo_condition()
+        setafter = cnf_set.to_string()
+        dot.node(str(cnf_set.id), setbefore + "\\n" + setafter)
+
+        # evaluate
+        cnf_set.print_set()
+        (s1, s2) = cnf_set.evaluate()
+        if s1 != None:
+            s1.id = node_id            
+            # dot.node(str(s1.id), s1.to_string())
+            node_id += 1
+
+            dot.edge(str(cnf_set.id), str(s1.id))            
+            cnf_set.left = s1
+
+            nodes_queue.put(s1)
+
+        if s2 != None:
+            s2.id = node_id            
+            # dot.node(str(s2.id), s2.to_string())
+            node_id += 1
+
+            dot.edge(str(cnf_set.id), str(s2.id))
+            cnf_set.right = s2
+
+            nodes_queue.put(s2)
+
+
+    # draw graph
+    draw_graph(dot)
+    
+
+
+
 
     # when the set reaches l.o. condition, we update the global sets record
 
