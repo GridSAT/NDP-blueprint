@@ -1,7 +1,9 @@
-from queue import SimpleQueue
+from queue import Queue
 from graphviz import Digraph
 
-# config
+### config
+# the min id of a literal in a set
+MIN_LITERAL = 1
 
 # todo: handle if input has [x, -x]
 
@@ -40,7 +42,7 @@ class Set:
 
 
     def rename_vars(self):
-        # start from 0
+        # start from 1
         id = 1
         self.names_map = {}
         for cl in self.clauses:
@@ -63,6 +65,7 @@ class Set:
         # 2- clauses are in ascending ordered in the Set
         # 3- All new Names/Indices of literals occurring for the first time in any clause of S are strictly greater than all the Literal Names/Indices occurring before them in S.
         # 4- each clause is unique in the set. (this was already done on input parsing)
+        # 5- the minimum literal id in the set equals MIN_LITERAL (new rule not in the paper). This is to force renaming if previous conditions are met but IDs start from a large value.
     def is_in_lo_state(self):
 
         # condition 1
@@ -76,6 +79,10 @@ class Set:
         if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
             min_var = abs(self.clauses[0].raw[0])
             seen_vars[min_var] = True
+
+            # condition 5 check
+            if min_var > MIN_LITERAL:
+                return False            
 
             for cl in self.clauses:
                 for var in cl.raw:
@@ -131,7 +138,7 @@ class Set:
                 # for right branch, remove the var from the clause
                 cl.raw.pop(0)
                 if len(cl.raw) > 0:
-                    right_clauses.append(cl)
+                    right_clauses.append(Clause(cl.raw))
                 # if it's the last variable, then the clause will be evaluated to False, then all the Set will be False
                 else:
                     right_set.set_value(False)
@@ -142,14 +149,14 @@ class Set:
                 # for left branch, remove the var from the clause
                 cl.raw.pop(0)
                 if len(cl.raw) > 0:
-                    left_clauses.append(cl)
+                    left_clauses.append(Clause(cl.raw))
                 # if it's the last variable, then the clause will be evaluated to False
                 else:
                     left_set.set_value(False)
 
             else:
-                left_clauses.append(cl)
-                right_clauses.append(cl)
+                left_clauses.append(Clause(cl.raw))
+                right_clauses.append(Clause(cl.raw))
 
         
         
@@ -235,7 +242,10 @@ class Clause:
 
 
 def draw_graph(dot):
-    print(dot.source)
+    #print(dot.source)
+    fg = open("graph.txt", "w")
+    fg.write(dot.source)
+    fg.close()
     #dot.render('out.svg', view=True)
 
 
@@ -251,7 +261,7 @@ def process_set(root_set):
     node_id = 1
     dot = Digraph(comment='The CNF Tree', format='svg')
 
-    nodes_queue = SimpleQueue()
+    nodes_queue = Queue()
     nodes_queue.put(root_set)
     root_set.id = node_id    
     dot.node(str(root_set.id), root_set.to_string())
@@ -260,8 +270,13 @@ def process_set(root_set):
     while not nodes_queue.empty():
         cnf_set = nodes_queue.get()
 
-        # to l.o. condition
+        # check if the set is already evaluated
         setbefore = cnf_set.to_string()
+        if cnf_set.value != None:
+            dot.node(str(cnf_set.id), setbefore)
+            continue
+
+        # to l.o. condition
         cnf_set.to_lo_condition()
         setafter = cnf_set.to_string()
         dot.node(str(cnf_set.id), setbefore + "\\n" + setafter)
