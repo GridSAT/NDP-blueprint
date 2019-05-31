@@ -11,15 +11,17 @@ class Clause:
             self.value = inp
         
     def __lt__(self, other):
-        selflen = len(self.raw)
-        otherlen = len(other.raw)
+        shortlen = len(self.raw)
+        biglen = len(other.raw)
 
-        # in case one of them is shorter, return the shorter
-        if selflen != otherlen:
-            return selflen < otherlen
+        # get the shorter len
+        if shortlen > biglen:
+            tmp = shortlen
+            shortlen = biglen
+            biglen = tmp
                
         # case where both are of equal length
-        for i in range(0, selflen):
+        for i in range(0, shortlen):
 
             if self.raw[i] == other.raw[i]:
                 continue
