@@ -3,10 +3,7 @@ import argparse
 from Set import *
 from Clause import *
 from PatternSolver import *
-
-### config
-# the min id of a literal in a set
-
+from InputReader import InputReader
 
 # todo: handle if input has [x, -x]
 
@@ -22,41 +19,38 @@ class CnfGraph:
         print(self.content)
 
 
-
-    
-
 def Main(args):
 
-    # input set has to be all in one line
-    if args.line_input_file:
-        seq = args.line_input_file.readline()
-        
-        # generate objects
-        CnfSet = Set()
-        try:
-            clauses = seq.split('&')
-            clauses_set = set()            
-            for cl in clauses:
-                s = cl.split('|')
-                # remove duplicates within clause
-                s = frozenset(map(int, s))
-                
-                # adding in a set container will remove duplicate clauses    
-                clauses_set.add(s)
+    # determine input type/format
+    input_type = None
+    input_content = None
+    
+    if args.line_input:
+        input_type = INPUT_SL
+        input_content = args.line_input
 
-            # create clauses objects
-            for cl in clauses_set:                
-                # a clause gets sorted automatically when the clause object is created
-                CnfSet.clauses.append(Clause(cl))
+    elif args.line_input_file:
+        input_type = INPUT_SLF
+        input_content = args.line_input_file
 
-        except Exception as e:
-            print("Error: " + str(e))
+    elif args.dimacs:
+        input_type = INPUT_DIMACS
+        input_content = args.dimacs
+
+    # begin logic
+    CnfSet = None
+    try:
+        input_reader = InputReader(input_type, input_content)
+        CnfSet = input_reader.get_cnf_set()
 
         # start processing the root set
         if len(CnfSet.clauses) > 0:
             PAT = PatternSolver()
             PAT.process_set(CnfSet)
 
+    except Exception as e:
+        logger.debug("Error - {0}".format(str(e)))
+        
 
 
 if __name__ == "__main__":        
