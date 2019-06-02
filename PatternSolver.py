@@ -57,13 +57,10 @@ class PatternSolver:
                 dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
                 continue
             else:
+                # when the set reaches l.o. condition, we update the global sets record
                 self.setmap[setafter] = 1
 
             dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
-
-
-            
-
 
             # evaluate
             cnf_set.print_set()
