@@ -11,4 +11,4 @@ INPUT_DIMACS = 3
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 logger = logging.getLogger('NSS')
-logger.setLevel(logging.CRITICAL)
+logger.setLevel(logging.WARNING)

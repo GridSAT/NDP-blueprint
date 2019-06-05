@@ -1,3 +1,4 @@
+import sys
 import time
 from graphviz import Digraph
 from queue import Queue
@@ -43,39 +44,40 @@ class PatternSolver:
             nodecolor = 'black'
             cnf_set = nodes_queue.get()
 
-            # check if the set is already evaluated to boolean value
-            setbefore = cnf_set.to_string()
+            # check if the set is already evaluated to boolean value            
             if cnf_set.value != None:
                 if self.args.output_graph_file:     
+                    setbefore = cnf_set.to_string()
                     dot.node(str(cnf_set.id), setbefore)
                 continue
 
             # to l.o. condition
             logger.debug("Set #{0} - to L.O. condition".format(node_id))   
-            cnf_set.to_lo_condition()
-            setafter = cnf_set.to_string()
+            cnf_set.to_lo_condition()            
+            setafterhash = cnf_set.get_hash()
 
             # check if we have processed the set before
-            if self.setmap.get(setafter, None):
-                self.setmap[setafter] += 1
+            if self.setmap.get(setafterhash, None):
+                self.setmap[setafterhash] += 1
                 redundants += 1
                 if self.args.output_graph_file:     
                     nodecolor = 'red'
+                    setafter = cnf_set.to_string()
                     dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
                 continue
             else:
                 # when the set reaches l.o. condition, we update the global sets record
-                self.setmap[setafter] = 1
+                self.setmap[setafterhash] = 1
 
-            if self.args.output_graph_file:     
+            if self.args.output_graph_file:
+                setafter = cnf_set.to_string()
                 dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
 
             # evaluate
-            logger.debug("Set #{0}".format(node_id))
+            logger.info("Set #{0}".format(node_id))
             (s1, s2) = cnf_set.evaluate()
             if s1 != None:
                 s1.id = node_id            
-                # dot.node(str(s1.id), s1.to_string())
                 node_id += 1
 
                 if self.args.output_graph_file:     
@@ -87,7 +89,6 @@ class PatternSolver:
 
             if s2 != None:
                 s2.id = node_id            
-                # dot.node(str(s2.id), s2.to_string())
                 node_id += 1
                 
                 if self.args.output_graph_file:     

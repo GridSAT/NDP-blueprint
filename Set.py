@@ -1,3 +1,4 @@
+import hashlib
 from configs import *
 from Clause import *
 
@@ -94,7 +95,6 @@ class Set:
                     if not seen_vars.get(var, None):
                         seen_vars[var] = True
                         min_var = var
-
 
         return True
 
@@ -195,6 +195,11 @@ class Set:
             
         return res
         
+    def get_hash(self):
+
+        # md5 hash
+        return hashlib.md5(bytes(self.to_string(pretty=False), "ascii")).digest()
+
 
     def print_set(self):
         print(self.to_string())
