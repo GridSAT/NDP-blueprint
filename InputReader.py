@@ -6,7 +6,7 @@
 
 import os
 import sys
-from configs import INPUT_SL, INPUT_SLF, INPUT_DIMACS
+from configs import *
 from Set import Set
 from Clause import Clause
 
@@ -43,25 +43,103 @@ class InputReader:
         # generate objects
         CnfSet = Set()
         try:
+            seq = seq.replace('(', '')
+            seq = seq.replace(')', '')
             clauses = seq.split('&')
-            clauses_set = set()
+            clauses_set = [] #set()
             for cl in clauses:
                 s = cl.split('|')
                 # remove duplicates within clause
                 s = frozenset(map(int, s))
                 
                 # adding in a set container will remove duplicate clauses    
-                clauses_set.add(s)
+                clauses_set.append(s)
 
             # create clauses objects
             for cl in clauses_set:                
                 # a clause gets sorted automatically when the clause object is created
-                CnfSet.clauses.append(Clause(cl))
+                CnfSet.add_clause(Clause(cl))
 
         except Exception as e:
             print("Error: " + str(e))
         
         return CnfSet
+
+
+    # DIMACS parser
+    # Assumptions:
+    #   Only one 0 in a particular line
+    def __parse_dimacs_file(self, dimacs_file):
+
+        logger.debug("Reading DIMACS file...")
+
+        # first line is the header
+        dline = dimacs_file.readline()
+        lcnt = 1
+        clause = []
+        clauses_set = set() # we add the clauses first in a set to remove duplicates, then we add them in Set object at end of the method
+        CnfSet = Set()
+
+        while dline:
+            dline = dimacs_file.readline().strip()
+            lcnt += 1
+
+            # if line is empty
+            if not dline:
+                continue
+
+            # skip comments, a comment line starts with 'c'
+            if dline.startswith('c'):
+                continue
+            
+            try:
+                # problem statement line
+                if dline.startswith('p'):
+                    p, problem, varnum, clausnum = dline.split()
+                    logger.debug("DIMACS: problem is {0} with {1} variables and {2} clauses.".format(problem, varnum, clausnum))
+
+                # read clause
+                else:
+                    # this is developed based on the assumption that an ugly file is being provided that could has more than one 0 in the same line
+
+                    elems = dline.split(' ')
+                    for el in elems:
+                        if not el:
+                            continue
+                        
+                        iel = int(el)
+
+                        if iel == 0 and len(clause) == 0:
+                            continue
+
+                        # if clause already has element, close it and start a new one
+                        if iel == 0:
+                            if len(clause) > 3:
+                                logger.critical("Error parsing DIMACS file at line {0}. A clause has more than 3 literals".format(lcnt))
+                                raise Exception("Error parsing DIMACS file at line {0}. A clause has more than 3 literals".format(lcnt))
+
+                            clauses_set.add(frozenset(clause))                            
+                            clause = []
+                        
+                        else:
+                            clause.append(iel)
+        
+            except Exception as e:
+                raise Exception("Error parsing DIMACS file at line {0} \n Exception: {1}".format(lcnt, str(e)))
+            
+        # end of reading the file
+        # if clause has elements, then close it
+        if len(clause):
+            clauses_set.add(frozenset(clause))
+
+        # create clauses objects
+        for cl in clauses_set:                
+            # a clause gets sorted automatically when the clause object is created
+            CnfSet.add_clause(Clause(cl))
+
+        dimacs_file.close()
+        return CnfSet
+            
 
 
     # read the input file and return a CNF set
@@ -70,9 +148,16 @@ class InputReader:
         # input set has to be all in one line
         if self.input_type == INPUT_SLF:          
             seq = self.input.readline()
+            self.input.close()
         
         if self.input_type in [INPUT_SL, INPUT_SLF]:
             return self.__parse_single_line_input(seq)
+
+        if self.input_type == INPUT_DIMACS:
+            return self.__parse_dimacs_file(self.input)
+
+        else:
+            raise Exception("Unknown input source")
             
             
 

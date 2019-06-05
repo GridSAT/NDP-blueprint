@@ -1,40 +1,42 @@
+import time
 from graphviz import Digraph
 from queue import Queue
+from configs import *
 
 class PatternSolver:
 
     # the dictionary that holds processed set
     # currently each key is the string represenation of the set, i.e. set.to_string()
     setmap = {}
-
-    def __init__(self):
+    args = None
+    def __init__(self, args=None):
         self.setmap.clear()        
+        self.args = args
         return
 
-    def draw_graph(self, dot):
+    def draw_graph(self, dot, outputfile):
         #print(dot.source)
-        fg = open("graph.txt", "w")
+        fg = open(outputfile, "w")
         fg.write(dot.source)
         fg.close()
-        #dot.render('out.svg', view=True)
 
 
     def process_set(self, root_set):
+        
+        start_time = time.time()
+        redundants = 0
 
-        # cnf_set.print_set()
-        # print('===========')
-        
-        # print('In L.O condition:')
-        # cnf_set.print_set()
-        
         # graph drawing
-        node_id = 1
+        node_id = 0
+        
         dot = Digraph(comment='The CNF Tree', format='svg')
-
         nodes_queue = Queue()
         nodes_queue.put(root_set)
-        root_set.id = node_id    
-        dot.node(str(root_set.id), root_set.to_string())
+        root_set.id = node_id
+        
+        if self.args.output_graph_file:            
+            dot.node(str(root_set.id), root_set.to_string())
+        
         node_id += 1
 
         while not nodes_queue.empty():
@@ -44,33 +46,41 @@ class PatternSolver:
             # check if the set is already evaluated to boolean value
             setbefore = cnf_set.to_string()
             if cnf_set.value != None:
-                dot.node(str(cnf_set.id), setbefore)
+                if self.args.output_graph_file:     
+                    dot.node(str(cnf_set.id), setbefore)
                 continue
 
             # to l.o. condition
+            logger.debug("Set #{0} - to L.O. condition".format(node_id))   
             cnf_set.to_lo_condition()
             setafter = cnf_set.to_string()
 
             # check if we have processed the set before
             if self.setmap.get(setafter, None):
-                nodecolor = 'red'
-                dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
+                self.setmap[setafter] += 1
+                redundants += 1
+                if self.args.output_graph_file:     
+                    nodecolor = 'red'
+                    dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
                 continue
             else:
                 # when the set reaches l.o. condition, we update the global sets record
                 self.setmap[setafter] = 1
 
-            dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
+            if self.args.output_graph_file:     
+                dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
 
             # evaluate
-            cnf_set.print_set()
+            logger.debug("Set #{0}".format(node_id))
             (s1, s2) = cnf_set.evaluate()
             if s1 != None:
                 s1.id = node_id            
                 # dot.node(str(s1.id), s1.to_string())
                 node_id += 1
 
-                dot.edge(str(cnf_set.id), str(s1.id))            
+                if self.args.output_graph_file:     
+                    dot.edge(str(cnf_set.id), str(s1.id))            
+
                 cnf_set.left = s1
 
                 nodes_queue.put(s1)
@@ -79,12 +89,21 @@ class PatternSolver:
                 s2.id = node_id            
                 # dot.node(str(s2.id), s2.to_string())
                 node_id += 1
-
-                dot.edge(str(cnf_set.id), str(s2.id))
+                
+                if self.args.output_graph_file:     
+                    dot.edge(str(cnf_set.id), str(s2.id))
+                
                 cnf_set.right = s2
 
                 nodes_queue.put(s2)
 
 
         # draw graph
-        self.draw_graph(dot)
+        if self.args.output_graph_file:     
+            self.draw_graph(dot, self.args.output_graph_file)
+
+        print("Execution finished!")
+        print('Input set processed in %.3f seconds' % (time.time() - start_time))
+        print("Total number of unique nodes: {0}".format(len(self.setmap)))
+        print("Total number of redundant nodes: {0}".format(redundants))
+

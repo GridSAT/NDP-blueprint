@@ -14,6 +14,26 @@ class Set:
         self.names_map = {}
         return
 
+    # when all clauses in a set get evaluated, then the set has a final value
+    def set_value(self, val):
+        self.value = val
+
+
+    def add_clause(self, cl):
+        # no need to add new clauses if the set is already evaluated previous to False
+        if self.value == False:
+            return
+
+        if cl.value == False:
+            self.set_value(False)
+        elif cl.value == True and len(self.clauses) == 0:
+            self.set_value(True)
+        elif cl.value == None:
+            self.clauses.append(cl)
+            self.set_value(None)
+
+        # if cl == True, then it has no meaning to add it
+
     def sort_within_clauses(self):
         for i in range(0, len(self.clauses)):
             self.clauses[i].sort()
@@ -37,10 +57,6 @@ class Set:
                     
                 cl.raw[i] = new * sign
 
-    # when all clauses in a set get evaluated, then the set has a final value
-    def set_value(self, val):
-        self.value = val
-
     # l.o. state as in "Constructive patterns of logical truth", or "#2SAT is in P" p. 23:
         # 1- variables within clauses are in ascending order.
         # 2- clauses are in ascending ordered in the Set
@@ -55,6 +71,8 @@ class Set:
         # condition 2
         self.sort_clauses()
 
+        #self.print_set()
+
         # condition 3
         seen_vars = {}
         if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
@@ -63,12 +81,14 @@ class Set:
 
             # condition 5 check
             if min_var > MIN_LITERAL:
+                logger.debug("Not in l.o.: min_var > MIN_LITERAL. min_var = {0}, MIN_LITERAL = {1}".format(min_var, MIN_LITERAL))
                 return False            
 
             for cl in self.clauses:
                 for var in cl.raw:
                     var = abs(var)
                     if var < min_var and not seen_vars.get(var, None):
+                        logger.debug("Not in l.o.: var < min_var and not seen before. var = {0}, min_var = {1}".format(var, min_var))
                         return False
 
                     if not seen_vars.get(var, None):
@@ -85,18 +105,14 @@ class Set:
         # check L.O. conditions
         while not self.is_in_lo_state():        
             # rename
-            print('Renaming...')
-            self.rename_vars()
+            #print('Renaming...')
+            self.rename_vars()            
             # self.print_set()
-            print('===========')
-
-            # i = i + 1
-            # if i > 4:
-            #     break
-
+            #print('===========')
 
     # evaluate the set and produce two branches
     def evaluate(self):
+
         # sanity check
         if len(self.clauses) <= 0 or len(self.clauses[0].raw) <= 0: 
             return (None, None)
@@ -153,7 +169,7 @@ class Set:
         return (left_set, right_set)
 
 
-    def to_string(self):
+    def to_string(self, pretty=True):
 
         # if the set evaluates to a value
         if self.value != None:
@@ -167,9 +183,16 @@ class Set:
         res_arr = []
         for cl in self.clauses:
             if len(cl.raw):
-                res_arr.append('(' + ' | '.join(map(str, cl.raw)) + ')')
+                if pretty:
+                    res_arr.append('(' + ' | '.join(map(str, cl.raw)) + ')')
+                else:                    
+                    res_arr.append('|'.join(map(str, cl.raw)))
 
-        res = ' & '.join(res_arr)
+        if pretty:
+            res = ' & '.join(res_arr)
+        else:
+            res = '&'.join(res_arr)
+            
         return res
         
 

@@ -1,11 +1,17 @@
 import sys
+import time
 import argparse
 from Set import *
 from Clause import *
 from PatternSolver import *
 from InputReader import InputReader
 
-# todo: handle if input has [x, -x]
+# todo: 
+# - Handle if input has [x, -x]. What I did now is to normalize the clause once it get read. However, this will not enable us to 
+#   view the initial set provided. Will see only the normalized version. The solution is to write normalize() method in each Clause and Set classes.
+#   and in the evaluation loop, we call the method normalize() before to_lo_condition(). However, do we need to normalize each set? or it's just the root set?
+#   This needs to be thought of well because we don't want to add extra time in the evaluation loop if we won't need normalization except for the root set.
+#   Currently it works fine with the current implementation as it focuses only on root, but we just don't save the unnormalized version for the root set.
 
 # a class to represent the CNF graph
 class CnfGraph:
@@ -39,21 +45,23 @@ def Main(args):
 
     # begin logic
     CnfSet = None
-    try:
-        input_reader = InputReader(input_type, input_content)
-        CnfSet = input_reader.get_cnf_set()
+    # try:
+    input_reader = InputReader(input_type, input_content)
+    CnfSet = input_reader.get_cnf_set()
 
-        # start processing the root set
-        if len(CnfSet.clauses) > 0:
-            PAT = PatternSolver()
-            PAT.process_set(CnfSet)
+    # start processing the root set
+    if len(CnfSet.clauses) > 0 or CnfSet.value != None:
+        PAT = PatternSolver(args=args)
+        PAT.process_set(CnfSet)
 
-    except Exception as e:
-        logger.debug("Error - {0}".format(str(e)))
+    # except Exception as e:
+    #     logger.critical("Error - {0}".format(str(e)))
         
 
 
-if __name__ == "__main__":        
+if __name__ == "__main__":
+
+    start_time = time.time()
 
     parser = argparse.ArgumentParser(description="NasserSatSolver [OPTIONS]")
     parser.add_argument("-v", "--verbos", help="Verbos", action="store_true")
@@ -80,8 +88,14 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(3)
 
+    if args.verbos:
+        logger.setLevel(logging.DEBUG)
+
     Main(args)
     
+    print('script took %.3f seconds' % (time.time() - start_time))
+
+
 
         
         
