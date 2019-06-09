@@ -44,10 +44,10 @@ class PatternSolver:
             nodecolor = 'black'
             cnf_set = nodes_queue.get()
 
+            setbefore = cnf_set.to_string()
             # check if the set is already evaluated to boolean value            
             if cnf_set.value != None:
                 if self.args.output_graph_file:     
-                    setbefore = cnf_set.to_string()
                     dot.node(str(cnf_set.id), setbefore)
                 continue
 
@@ -65,9 +65,10 @@ class PatternSolver:
                     setafter = cnf_set.to_string()
                     dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
                 continue
-            else:
-                # when the set reaches l.o. condition, we update the global sets record
-                self.setmap[setafterhash] = 1
+            
+
+            # when the set reaches l.o. condition, we update the global sets record
+            self.setmap[setafterhash] = 1
 
             if self.args.output_graph_file:
                 setafter = cnf_set.to_string()
