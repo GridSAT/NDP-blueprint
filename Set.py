@@ -72,8 +72,6 @@ class Set:
         # condition 2
         self.sort_clauses()
 
-        #self.print_set()
-
         # condition 3
         seen_vars = {}
         if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
