@@ -29,15 +29,10 @@ class PatternSolver:
 
         # graph drawing
         node_id = 0
-        
         dot = Digraph(comment='The CNF Tree', format='svg')
         nodes_queue = Queue()
         nodes_queue.put(root_set)
         root_set.id = node_id
-        
-        if self.args.output_graph_file:            
-            dot.node(str(root_set.id), root_set.to_string())
-        
         node_id += 1
 
         while not nodes_queue.empty():
@@ -100,12 +95,16 @@ class PatternSolver:
                 nodes_queue.put(s2)
 
 
+        stats = 'Input set processed in %.3f seconds' % (time.time() - start_time) 
+        stats += '\\n' + "Total number of unique nodes: {0}".format(len(self.setmap))
+        stats += '\\n' + "Total number of redundant nodes: {0}".format(redundants)
+
         # draw graph
-        if self.args.output_graph_file:     
+        if self.args.output_graph_file:             
+            dot.node("stats", stats, shape="record", style="dotted")
             self.draw_graph(dot, self.args.output_graph_file)
 
+
         print("Execution finished!")
-        print('Input set processed in %.3f seconds' % (time.time() - start_time))
-        print("Total number of unique nodes: {0}".format(len(self.setmap)))
-        print("Total number of redundant nodes: {0}".format(redundants))
+        print(stats.replace("\\n", "\n"))
 
