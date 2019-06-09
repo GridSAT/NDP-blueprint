@@ -72,6 +72,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--dimacs", type=argparse.FileType('r'), help="File name to contain the set in DIMACS format. See http://bit.ly/dimcasf")
     parser.add_argument("-g", "--output-graph-file", type=str, help="Output graph file in Graphviz format")
     parser.add_argument("-ud", "--use-db", help="Use database for set lookup", action="store_true")
+    parser.add_argument("-lou", "--lo-universal", help="Use database for set lookup", action="store_true")
 
     args = parser.parse_args()
 

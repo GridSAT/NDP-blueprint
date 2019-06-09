@@ -81,9 +81,14 @@ class PatternSolver:
                     dot.node(str(cnf_set.id), setbefore)
                 continue
 
-            # to l.o. condition
-            logger.debug("Set #{0} - to L.O. condition".format(node_id))   
-            cnf_set.to_lo_condition()            
+            # to l.o. condition            
+            if self.args.lo_universal and cnf_set.id > 0:
+                logger.debug("Set #{0} - to L.O.U condition".format(node_id))
+                cnf_set.to_lo_condition(lou=True)
+            else:
+                logger.debug("Set #{0} - to L.O condition".format(node_id))   
+                cnf_set.to_lo_condition()
+
             setafterhash = cnf_set.get_hash()
 
             # check if we have processed the set before

@@ -64,13 +64,15 @@ class Set:
         # 3- All new Names/Indices of literals occurring for the first time in any clause of S are strictly greater than all the Literal Names/Indices occurring before them in S.
         # 4- each clause is unique in the set. (this was already done on input parsing)
         # 5- the minimum literal id in the set equals MIN_LITERAL (new rule not in the paper). This is to force renaming if previous conditions are met but IDs start from a large value.
-    def is_in_lo_state(self):
+    #@param: lou (linearly ordered universal), is a state where condition# 2 is skipped
+    def is_in_lo_state(self, lou=False):
 
         # condition 1
         self.sort_within_clauses()
 
         # condition 2
-        self.sort_clauses()
+        if not lou:
+            self.sort_clauses()
 
         # condition 3
         seen_vars = {}
@@ -81,7 +83,7 @@ class Set:
             # condition 5 check
             if min_var > MIN_LITERAL:
                 logger.debug("Not in l.o.: min_var > MIN_LITERAL. min_var = {0}, MIN_LITERAL = {1}".format(min_var, MIN_LITERAL))
-                return False            
+                return False
 
             for cl in self.clauses:
                 for var in cl.raw:
@@ -98,15 +100,13 @@ class Set:
 
         
     # convert to L.O. condition
-    def to_lo_condition(self):
+    def to_lo_condition(self, lou=False):
         i = 0
         # check L.O. conditions
-        while not self.is_in_lo_state():        
+        while not self.is_in_lo_state(lou):        
             # rename
-            #print('Renaming...')
-            self.rename_vars()            
-            # self.print_set()
-            #print('===========')
+            self.rename_vars()
+
 
     # evaluate the set and produce two branches
     def evaluate(self):
