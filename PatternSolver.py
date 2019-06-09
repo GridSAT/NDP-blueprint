@@ -3,6 +3,7 @@ import time
 from graphviz import Digraph
 from queue import Queue
 from configs import *
+from DbAdaptor import DbAdapter
 
 class PatternSolver:
 
@@ -10,21 +11,55 @@ class PatternSolver:
     # currently each key is the string represenation of the set, i.e. set.to_string()
     setmap = {}
     args = None
-    def __init__(self, args=None):
-        self.setmap.clear()        
+    db_adaptor = None
+    problem_name = "cnf_{}".format(str(time.time()).replace(".", "_"))
+    use_db = False
+
+    def __init__(self, args=None, problem_name=None):
+        self.setmap.clear()
         self.args = args
-        return
+        if problem_name:
+            self.problem_name = problem_name
+
+        if args.use_db:
+            self.use_db = True
+            self.db_adaptor = DbAdapter()            
+            self.db_adaptor.create_table(self.problem_name)
+        
 
     def draw_graph(self, dot, outputfile):
-        #print(dot.source)
         fg = open(outputfile, "w")
         fg.write(dot.source)
         fg.close()
 
+    def is_set_seen(self, set_hash):
+        if not self.use_db:
+            return self.setmap.get(set_hash, False)
+        
+        return self.db_adaptor.does_exist(self.problem_name, set_hash)
+
+
+    def update_set_seen_count(self, set_hash):
+        if not self.use_db:
+            self.setmap[set_hash] += 1
+            return
+
+        return self.db_adaptor.update_count(self.problem_name, set_hash)
+
+
+    def add_encountered_set(self, set_hash):
+        if not self.use_db:
+            self.setmap[set_hash] = 1
+            return
+
+        return self.db_adaptor.insert_row(self.problem_name, set_hash)
+
+        
 
     def process_set(self, root_set):
         
         start_time = time.time()
+        uniques = 0
         redundants = 0
 
         # graph drawing
@@ -52,8 +87,8 @@ class PatternSolver:
             setafterhash = cnf_set.get_hash()
 
             # check if we have processed the set before
-            if self.setmap.get(setafterhash, None):
-                self.setmap[setafterhash] += 1
+            if self.is_set_seen(setafterhash):
+                self.update_set_seen_count(setafterhash)
                 redundants += 1
                 if self.args.output_graph_file:     
                     nodecolor = 'red'
@@ -63,7 +98,8 @@ class PatternSolver:
             
 
             # when the set reaches l.o. condition, we update the global sets record
-            self.setmap[setafterhash] = 1
+            uniques += 1
+            self.add_encountered_set(setafterhash)
 
             if self.args.output_graph_file:
                 setafter = cnf_set.to_string()
@@ -96,11 +132,11 @@ class PatternSolver:
 
 
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time) 
-        stats += '\\n' + "Total number of unique nodes: {0}".format(len(self.setmap))
+        stats += '\\n' + "Total number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Total number of redundant nodes: {0}".format(redundants)
 
         # draw graph
-        if self.args.output_graph_file:             
+        if self.args.output_graph_file:
             dot.node("stats", stats, shape="record", style="dotted")
             self.draw_graph(dot, self.args.output_graph_file)
 
