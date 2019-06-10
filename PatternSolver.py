@@ -1,5 +1,5 @@
 import sys
-import time
+import time, math
 from graphviz import Digraph
 from queue import Queue
 from configs import *
@@ -135,10 +135,10 @@ class PatternSolver:
 
                 nodes_queue.put(s2)
 
-
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time) 
         stats += '\\n' + "Total number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Total number of redundant nodes: {0}".format(redundants)
+        stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id+1)))-1))
 
         # draw graph
         if self.args.output_graph_file:
