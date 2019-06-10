@@ -65,14 +65,14 @@ class PatternSolver:
         # graph drawing
         node_id = 0
         dot = Digraph(comment='The CNF Tree', format='svg')
-        nodes_queue = Queue()
-        nodes_queue.put(root_set)
+        nodes_queue = []
+        nodes_queue.append(root_set)
         root_set.id = node_id
         node_id += 1
 
-        while not nodes_queue.empty():
+        while len(nodes_queue):
             nodecolor = 'black'
-            cnf_set = nodes_queue.get()
+            cnf_set = nodes_queue.pop(0)
 
             setbefore = cnf_set.to_string()
             # check if the set is already evaluated to boolean value            
@@ -95,7 +95,7 @@ class PatternSolver:
             if self.is_set_seen(setafterhash):
                 self.update_set_seen_count(setafterhash)
                 redundants += 1
-                if self.args.output_graph_file:     
+                if self.args.output_graph_file:
                     nodecolor = 'red'
                     setafter = cnf_set.to_string()
                     dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
@@ -122,7 +122,7 @@ class PatternSolver:
 
                 cnf_set.left = s1
 
-                nodes_queue.put(s1)
+                nodes_queue.append(s1)
 
             if s2 != None:
                 s2.id = node_id            
@@ -133,7 +133,7 @@ class PatternSolver:
                 
                 cnf_set.right = s2
 
-                nodes_queue.put(s2)
+                nodes_queue.append(s2)
 
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time) 
         stats += '\\n' + "Total number of unique nodes: {0}".format(uniques)
