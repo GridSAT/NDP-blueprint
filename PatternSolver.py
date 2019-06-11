@@ -1,5 +1,7 @@
+import os, gc
 import sys
 import time, math
+import psutil
 from graphviz import Digraph
 from queue import Queue
 from configs import *
@@ -69,7 +71,7 @@ class PatternSolver:
         nodes_queue.append(root_set)
         root_set.id = node_id
         node_id += 1
-
+        
         while len(nodes_queue):
             nodecolor = 'black'
             cnf_set = nodes_queue.pop(0)
@@ -77,16 +79,16 @@ class PatternSolver:
             setbefore = cnf_set.to_string()
             # check if the set is already evaluated to boolean value            
             if cnf_set.value != None:
-                if self.args.output_graph_file:     
+                if self.args.output_graph_file:
                     dot.node(str(cnf_set.id), setbefore)
                 continue
 
-            # to l.o. condition            
+            # to l.o. condition
             if self.args.lo_universal and cnf_set.id > 0:
                 logger.debug("Set #{0} - to L.O.U condition".format(node_id))
                 cnf_set.to_lo_condition(lou=True)
             else:
-                logger.debug("Set #{0} - to L.O condition".format(node_id))   
+                logger.debug("Set #{0} - to L.O condition".format(node_id))
                 cnf_set.to_lo_condition()
 
             setafterhash = cnf_set.get_hash()
@@ -101,7 +103,6 @@ class PatternSolver:
                     dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
                 continue
             
-
             # when the set reaches l.o. condition, we update the global sets record
             uniques += 1
             self.add_encountered_set(setafterhash)
@@ -119,9 +120,7 @@ class PatternSolver:
 
                 if self.args.output_graph_file:     
                     dot.edge(str(cnf_set.id), str(s1.id))            
-
-                cnf_set.left = s1
-
+                
                 nodes_queue.append(s1)
 
             if s2 != None:
@@ -130,21 +129,25 @@ class PatternSolver:
                 
                 if self.args.output_graph_file:     
                     dot.edge(str(cnf_set.id), str(s2.id))
-                
-                cnf_set.right = s2
-
+                                
                 nodes_queue.append(s2)
+                       
+            if not (node_id%6):
+                gc.collect()
 
+
+        process = psutil.Process(os.getpid())
+        memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time) 
         stats += '\\n' + "Total number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Total number of redundant nodes: {0}".format(redundants)
         stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id+1)))-1))
+        stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 
         # draw graph
         if self.args.output_graph_file:
             dot.node("stats", stats, shape="record", style="dotted")
             self.draw_graph(dot, self.args.output_graph_file)
-
 
         print("Execution finished!")
         print(stats.replace("\\n", "\n"))

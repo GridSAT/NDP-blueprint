@@ -5,20 +5,12 @@ from Clause import *
 class Set:
 
     clauses = []
-    names_map = {}
     value = None    # unknown, not evaluated
-    left = None
-    right = None
     id = 0
-
-    def __init__(self):
-        self.names_map = {}
-        return
 
     # when all clauses in a set get evaluated, then the set has a final value
     def set_value(self, val):
         self.value = val
-
 
     def add_clause(self, cl):
         # no need to add new clauses if the set is already evaluated previous to False
@@ -42,21 +34,21 @@ class Set:
     def sort_clauses(self):
         self.clauses = sorted(self.clauses)
 
-
     def rename_vars(self):
         # start from 1
         id = 1
-        self.names_map = {}
+        names_map = {}
         for cl in self.clauses:
             for i in range(0, len(cl.raw)):
                 sign = (int) (cl.raw[i] / abs(cl.raw[i]))
-                new = self.names_map.get(abs(cl.raw[i]), None)
+                new = names_map.get(abs(cl.raw[i]), None)
                 if new == None:
                     new = id
-                    self.names_map[abs(cl.raw[i])] = new
+                    names_map[abs(cl.raw[i])] = new
                     id = id + 1
                     
                 cl.raw[i] = new * sign
+        
 
     # l.o. state as in "Constructive patterns of logical truth", or "#2SAT is in P" p. 23:
         # 1- variables within clauses are in ascending order.
@@ -152,7 +144,6 @@ class Set:
             else:
                 left_clauses.append(Clause(cl.raw))
                 right_clauses.append(Clause(cl.raw))
-
         
         
         left_set.clauses = left_clauses
@@ -194,7 +185,6 @@ class Set:
         return res
         
     def get_hash(self):
-
         # md5 hash
         return hashlib.md5(bytes(self.to_string(pretty=False), "ascii")).digest()
 
