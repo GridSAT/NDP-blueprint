@@ -132,8 +132,8 @@ class PatternSolver:
                                 
                 nodes_queue.append(s2)
                        
-            if not (node_id%6):
-                gc.collect()
+            # if not (node_id%6):
+            #     gc.collect()
 
 
         process = psutil.Process(os.getpid())
