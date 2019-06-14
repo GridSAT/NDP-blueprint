@@ -57,6 +57,47 @@ class PatternSolver:
         return self.db_adaptor.insert_row(self.problem_name, set_hash)
 
         
+    def process_child_node(self, child_set, dot):
+
+        node_status = None
+        nodecolor = 'black'
+
+        # check if the set is already evaluated to boolean value            
+        setbefore = child_set.to_string()
+        if child_set.value != None:
+            if self.args.output_graph_file:
+                dot.node(str(child_set.id), setbefore)
+            node_status = NODE_EVALUATED
+
+        else:
+            # to l.o. condition                
+            if self.args.lo_universal:                    
+                logger.debug("Set #{0} - to L.O.U condition".format(child_set.id))
+                child_set.to_lo_condition(lou=True)
+            else:
+                logger.debug("Set #{0} - to L.O. condition".format(child_set.id))
+                child_set.to_lo_condition()                    
+
+            setafterhash = child_set.get_hash()
+
+            # check if we have processed the set before
+            if self.is_set_seen(setafterhash):
+                self.update_set_seen_count(setafterhash)
+                node_status = NODE_REDUNDANT
+                if self.args.output_graph_file:
+                    nodecolor = 'red'
+            
+            else:                
+                # when the set reaches l.o. condition, we update the global sets record
+                node_status = NODE_UNIQUE
+                self.add_encountered_set(setafterhash)
+
+            if self.args.output_graph_file:
+                setafter = child_set.to_string()
+                dot.node(str(child_set.id), setbefore + "\\n" + setafter, color=nodecolor)
+
+        return node_status
+
 
     def process_set(self, root_set):
         
@@ -71,76 +112,59 @@ class PatternSolver:
         nodes_queue.append(root_set)
         root_set.id = node_id
         node_id += 1
+        uniques += 1
         
-        while len(nodes_queue):
-            nodecolor = 'black'
+        logger.debug("Set #{0} - to L.O condition".format(node_id))
+        setbefore = root_set.to_string()
+        root_set.to_lo_condition()
+        setafterhash = root_set.get_hash()
+        self.add_encountered_set(setafterhash)
+        if self.args.output_graph_file:
+            setafter = root_set.to_string()
+            dot.node(str(root_set.id), setbefore + "\\n" + setafter, color='black')
+
+        while len(nodes_queue):            
             cnf_set = nodes_queue.pop(0)
-
-            setbefore = cnf_set.to_string()
-            # check if the set is already evaluated to boolean value            
-            if cnf_set.value != None:
-                if self.args.output_graph_file:
-                    dot.node(str(cnf_set.id), setbefore)
-                continue
-
-            # to l.o. condition
-            if self.args.lo_universal and cnf_set.id > 0:
-                logger.debug("Set #{0} - to L.O.U condition".format(node_id))
-                cnf_set.to_lo_condition(lou=True)
-            else:
-                logger.debug("Set #{0} - to L.O condition".format(node_id))
-                cnf_set.to_lo_condition()
-
-            setafterhash = cnf_set.get_hash()
-
-            # check if we have processed the set before
-            if self.is_set_seen(setafterhash):
-                self.update_set_seen_count(setafterhash)
-                redundants += 1
-                if self.args.output_graph_file:
-                    nodecolor = 'red'
-                    setafter = cnf_set.to_string()
-                    dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
-                continue
-            
-            # when the set reaches l.o. condition, we update the global sets record
-            uniques += 1
-            self.add_encountered_set(setafterhash)
-
-            if self.args.output_graph_file:
-                setafter = cnf_set.to_string()
-                dot.node(str(cnf_set.id), setbefore + "\\n" + setafter, color=nodecolor)
 
             # evaluate
             logger.info("Set #{0}".format(node_id))
             (s1, s2) = cnf_set.evaluate()
+
             if s1 != None:
-                s1.id = node_id            
+                s1.id = node_id
                 node_id += 1
 
-                if self.args.output_graph_file:     
-                    dot.edge(str(cnf_set.id), str(s1.id))            
-                
-                nodes_queue.append(s1)
+                if self.args.output_graph_file:
+                    dot.edge(str(cnf_set.id), str(s1.id))
+
+                node_status = self.process_child_node(s1, dot)
+                if node_status == NODE_UNIQUE:
+                    uniques += 1
+                    nodes_queue.append(s1)
+                elif node_status == NODE_REDUNDANT:
+                    redundants += 1
+
 
             if s2 != None:
-                s2.id = node_id            
+                s2.id = node_id
                 node_id += 1
-                
+
                 if self.args.output_graph_file:     
                     dot.edge(str(cnf_set.id), str(s2.id))
-                                
-                nodes_queue.append(s2)
-                       
-            # if not (node_id%6):
-            #     gc.collect()
 
+                node_status = self.process_child_node(s2, dot)
+                if node_status == NODE_UNIQUE:
+                    uniques += 1
+                    nodes_queue.append(s2)
+                elif node_status == NODE_REDUNDANT:
+                    redundants += 1
+                       
 
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time) 
         stats += '\\n' + "Total number of unique nodes: {0}".format(uniques)
-        stats += '\\n' + "Total number of redundant nodes: {0}".format(redundants)
+        stats += '\\n' + "Total number of redundant subtrees: {0}".format(redundants)
         stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id+1)))-1))
         stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 
@@ -149,6 +173,7 @@ class PatternSolver:
             dot.node("stats", stats, shape="record", style="dotted")
             self.draw_graph(dot, self.args.output_graph_file)
 
-        print("Execution finished!")
-        print(stats.replace("\\n", "\n"))
+        if self.args.quiet == False:
+            print("Execution finished!")
+            print(stats.replace("\\n", "\n"))
 

@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="NasserSatSolver [OPTIONS]")
     parser.add_argument("-v", "--verbos", help="Verbos", action="store_true")
     parser.add_argument("-vv", "--very-verbos", help="Verbos", action="store_true")
-    parser.add_argument("-q", "--quiet", help="Quiet mode. No stdout output.")
+    parser.add_argument("-q", "--quiet", help="Quiet mode. No stdout output.", action="store_true")
     parser.add_argument("-l", "--line-input", type=str, help="Represent the input set in one line. Format: a|b|c&d|e|f ...")
     parser.add_argument("-lf", "--line-input-file", type=argparse.FileType('r'), help="Represent the input set in one line stored in a file. Format: a|b|c&d|e|f ...")
     parser.add_argument("-d", "--dimacs", type=argparse.FileType('r'), help="File name to contain the set in DIMACS format. See http://bit.ly/dimcasf")

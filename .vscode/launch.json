@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
-            "args": ["-d", "${workspaceFolder}/inputs/c8blif.txt_3CNF.txt", "-ud"]
+            "args": ["-d", "${workspaceFolder}/inputs/test_cases/Factoring2_5.txt", "-g", "inputs/test_cases/Factoring2_5_debug.graph"]
         },
         {
             "name": "Python: Remote Attach",

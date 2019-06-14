@@ -14,6 +14,12 @@ DB_NAME="patternsolvers"
 DB_USER="mesaleh"
 DB_PASSWORD="951753saleh"
 
+# constants
+NODE_UNIQUE = 0
+NODE_REDUNDANT = 1
+NODE_EVALUATED = 2
+
+
 # logging
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 logger = logging.getLogger('NSS')
