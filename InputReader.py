@@ -46,7 +46,7 @@ class InputReader:
             seq = seq.replace('(', '')
             seq = seq.replace(')', '')
             clauses = seq.split('&')
-            clauses_set = [] #set()
+            clauses_set = []
             for cl in clauses:
                 s = cl.split('|')
                 # remove duplicates within clause
@@ -77,7 +77,10 @@ class InputReader:
         dline = dimacs_file.readline()
         lcnt = 1
         clause = []
-        clauses_set = set() # we add the clauses first in a set to remove duplicates, then we add them in Set object at end of the method
+        # Initially I added the clauses in a set data structure to remove duplicates, then we add them in Set object at end of the method
+        # However, this altered the input ordered of the clauses, which will violate the -lou option. Hence, I made it a list but accepted the fact
+        # that there could be an input with duplicate clauses, in rare cases, however, that won't affect the final outcome.
+        clauses_set = [] 
         CnfSet = Set()
 
         while dline:
@@ -101,7 +104,6 @@ class InputReader:
                 # read clause
                 else:
                     # this is developed based on the assumption that an ugly file is being provided that could has more than one 0 in the same line
-
                     elems = dline.split(' ')
                     for el in elems:
                         if not el:
@@ -118,7 +120,7 @@ class InputReader:
                                 logger.critical("Error parsing DIMACS file at line {0}. A clause has more than 3 literals".format(lcnt))
                                 raise Exception("Error parsing DIMACS file at line {0}. A clause has more than 3 literals".format(lcnt))
 
-                            clauses_set.add(frozenset(clause))                            
+                            clauses_set.append(frozenset(clause))                            
                             clause = []
                         
                         else:
@@ -130,10 +132,10 @@ class InputReader:
         # end of reading the file
         # if clause has elements, then close it
         if len(clause):
-            clauses_set.add(frozenset(clause))
+            clauses_set.append(frozenset(clause))
 
         # create clauses objects
-        for cl in clauses_set:                
+        for cl in clauses_set:
             # a clause gets sorted automatically when the clause object is created
             CnfSet.add_clause(Clause(cl))
 
