@@ -70,13 +70,13 @@ class PatternSolver:
             node_status = NODE_EVALUATED
 
         else:
-            # to l.o. condition                
-            if self.args.lo_universal:                    
-                logger.debug("Set #{0} - to L.O.U condition".format(child_set.id))
-                child_set.to_lo_condition(lou=True)
+            # if user input mode is MODE_LO, it means only root is LO and the rest are LOU, and since this is a child node, then pass LOU argument
+            if self.args.mode == MODE_LO:                
+                logger.debug("Set #{} - convert to {} mode".format(child_set.id, MODE_LOU))
+                child_set.to_lo_condition(MODE_LOU)
             else:
-                logger.debug("Set #{0} - to L.O. condition".format(child_set.id))
-                child_set.to_lo_condition()                    
+                logger.debug("Set #{} - convert to {} mode".format(child_set.id, self.args.mode))
+                child_set.to_lo_condition(self.args.mode)
 
             setafterhash = child_set.get_hash()
 
@@ -114,9 +114,9 @@ class PatternSolver:
         node_id += 1
         uniques += 1
         
-        logger.debug("Set #{0} - to L.O condition".format(node_id))
+        logger.debug("Set #{} - to root set to {} mode".format(node_id, self.args.mode))
         setbefore = root_set.to_string()
-        root_set.to_lo_condition()
+        root_set.to_lo_condition(self.args.mode)
         setafterhash = root_set.get_hash()
         self.add_encountered_set(setafterhash)
         if self.args.output_graph_file:
@@ -163,6 +163,7 @@ class PatternSolver:
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time) 
+        stats += '\\n' + "Solution mode: {0}".format(self.args.mode)
         stats += '\\n' + "Total number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Total number of redundant subtrees: {0}".format(redundants)
         stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id+1)))-1))

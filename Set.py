@@ -56,46 +56,49 @@ class Set:
         # 3- All new Names/Indices of literals occurring for the first time in any clause of S are strictly greater than all the Literal Names/Indices occurring before them in S.
         # 4- each clause is unique in the set. (this was already done on input parsing)
         # 5- the minimum literal id in the set equals MIN_LITERAL (new rule not in the paper). This is to force renaming if previous conditions are met but IDs start from a large value.
-    #@param: lou (linearly ordered universal), is a state where condition# 2 is skipped
-    def is_in_lo_state(self, lou=False):
+    #@param: mode:
+        # lo (linearly ordered), all conditions are met
+        # lou (linearly ordered universal), is a state where condition# 2 is skipped
+        # normal: only condition 1 is met
+    def is_in_lo_state(self, mode=MODE_LO):
 
         # condition 1
         self.sort_within_clauses()
 
         # condition 2
-        if not lou:
+        if mode != MODE_LOU and mode != MODE_NORMAL:
             self.sort_clauses()
 
         # condition 3
-        seen_vars = {}
-        if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
-            min_var = abs(self.clauses[0].raw[0])
-            seen_vars[min_var] = True
+        if mode != MODE_NORMAL:
+            seen_vars = {}
+            if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
+                min_var = abs(self.clauses[0].raw[0])
+                seen_vars[min_var] = True
 
-            # condition 5 check
-            if min_var > MIN_LITERAL:
-                logger.debug("Not in l.o.: min_var > MIN_LITERAL. min_var = {0}, MIN_LITERAL = {1}".format(min_var, MIN_LITERAL))
-                return False
+                # condition 5 check
+                if min_var > MIN_LITERAL:
+                    logger.debug("Not in l.o.: min_var > MIN_LITERAL. min_var = {0}, MIN_LITERAL = {1}".format(min_var, MIN_LITERAL))
+                    return False
 
-            for cl in self.clauses:
-                for var in cl.raw:
-                    var = abs(var)
-                    if var < min_var and not seen_vars.get(var, None):
-                        logger.debug("Not in l.o.: var < min_var and not seen before. var = {0}, min_var = {1}".format(var, min_var))
-                        return False
+                for cl in self.clauses:
+                    for var in cl.raw:
+                        var = abs(var)
+                        if var < min_var and not seen_vars.get(var, None):
+                            logger.debug("Not in l.o.: var < min_var and not seen before. var = {0}, min_var = {1}".format(var, min_var))
+                            return False
 
-                    if not seen_vars.get(var, None):
-                        seen_vars[var] = True
-                        min_var = var
+                        if not seen_vars.get(var, None):
+                            seen_vars[var] = True
+                            min_var = var
 
         return True
 
         
     # convert to L.O. condition
-    def to_lo_condition(self, lou=False):
-        i = 0
+    def to_lo_condition(self, mode=MODE_LO):
         # check L.O. conditions
-        while not self.is_in_lo_state(lou):        
+        while not self.is_in_lo_state(mode):        
             # rename
             self.rename_vars()
 

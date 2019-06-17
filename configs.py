@@ -19,6 +19,12 @@ NODE_UNIQUE = 0
 NODE_REDUNDANT = 1
 NODE_EVALUATED = 2
 
+# modes
+MODE_FLO = "flo"
+MODE_LOU = "lou"
+MODE_LO = "lo"
+MODE_NORMAL = "normal"
+
 
 # logging
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')

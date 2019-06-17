@@ -1,6 +1,6 @@
 import sys
 import time
-import argparse
+import argparse, textwrap
 from Set import *
 from Clause import *
 from PatternSolver import *
@@ -63,16 +63,25 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    parser = argparse.ArgumentParser(description="NasserSatSolver [OPTIONS]")
-    parser.add_argument("-v", "--verbos", help="Verbos", action="store_true")
-    parser.add_argument("-vv", "--very-verbos", help="Verbos", action="store_true")
-    parser.add_argument("-q", "--quiet", help="Quiet mode. No stdout output.", action="store_true")
-    parser.add_argument("-l", "--line-input", type=str, help="Represent the input set in one line. Format: a|b|c&d|e|f ...")
-    parser.add_argument("-lf", "--line-input-file", type=argparse.FileType('r'), help="Represent the input set in one line stored in a file. Format: a|b|c&d|e|f ...")
-    parser.add_argument("-d", "--dimacs", type=argparse.FileType('r'), help="File name to contain the set in DIMACS format. See http://bit.ly/dimcasf")
+    class Formatter(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter): pass
+    parser = argparse.ArgumentParser(description="NasserSatSolver [OPTIONS]", formatter_class=argparse.RawTextHelpFormatter)
+    group1 = parser.add_mutually_exclusive_group()
+    group1.add_argument("-v", "--verbos", help="Verbos", action="store_true")
+    group1.add_argument("-vv", "--very-verbos", help="Very verbos", action="store_true")
+    group1.add_argument("-q", "--quiet", help="Quiet mode. No stdout output.", action="store_true")
+    group2 = parser.add_mutually_exclusive_group(required=True)
+    group2.add_argument("-l", "--line-input", type=str, help="Represent the input set in one line. Format: a|b|c&d|e|f ...")
+    group2.add_argument("-lf", "--line-input-file", type=argparse.FileType('r'), help="Represent the input set in one line stored in a file. Format: a|b|c&d|e|f ...")
+    group2.add_argument("-d", "--dimacs", type=argparse.FileType('r'), help="File name to contain the set in DIMACS format. See http://bit.ly/dimcasf")
     parser.add_argument("-g", "--output-graph-file", type=str, help="Output graph file in Graphviz format")
     parser.add_argument("-ud", "--use-db", help="Use database for set lookup", action="store_true")
-    parser.add_argument("-lou", "--lo-universal", help="Use linearliy ordered universal", action="store_true")
+    parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
+    flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)
+    lo: Linearily ordered, where only the root node will be brought to L.O. condition while the rest of the nodes will be brought to L.O.U. condition.
+    lou: Linearily ordered universal, where all nodes in the tree will be brought to L.O.U. condition.
+    normal: Don't use Nasser's algorithm and use a normal evaluation of the set with no preprocessing steps except for ascending sorting of vars within each clause.
+            '''), choices=['flo', 'lo', 'lou', 'normal'], default="flo")
+    #parser.add_argument('--version', action='version', version='%(prog)s 1.1') # can use GitPython to automatically get latest tag here
 
     args = parser.parse_args()
 
