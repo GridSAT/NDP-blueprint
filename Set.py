@@ -188,8 +188,8 @@ class Set:
         return res
         
     def get_hash(self):
-        # md5 hash
-        return hashlib.md5(bytes(self.to_string(pretty=False), "ascii")).digest()
+        # sha1 hash
+        return hashlib.sha1(bytes(self.to_string(pretty=False), "ascii")).digest()
 
 
     def print_set(self):
