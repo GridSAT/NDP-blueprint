@@ -1,7 +1,10 @@
+import time
 import psycopg2
 from configs import *
 import hashlib
 from psycopg2 import sql
+
+# helpful query: select id, cid1 is null as cid1_is_null, cid2 is null as cid2_is_null from cnf_1560847944_097688;
 
 class DbAdapter:
 
@@ -11,7 +14,11 @@ class DbAdapter:
         """ create tables in the PostgreSQL database"""
         command = """
                 CREATE TABLE {0} (
-                set_hash BYTEA PRIMARY KEY,
+                id BYTEA PRIMARY KEY,
+                body TEXT,
+                cid1 BYTEA,
+                cid2 BYTEA,
+                mapping INTEGER[],
                 count INTEGER DEFAULT 1
             )
             """.format(table_name)
@@ -45,7 +52,7 @@ class DbAdapter:
             cur = conn.cursor()
             # execute the INSERT statement
             #cur.execute(sql.SQL("insert into {} values (%s, %s)").format(sql.Identifier('my_table')), [10, 20])
-            cur.execute(sql.SQL("INSERT INTO {0}(set_hash) VALUES(%s)").format(sql.Identifier(table_name)), (value, ))
+            cur.execute(sql.SQL("INSERT INTO {0}(id, cid1, cid2) VALUES(%s, %s, %s)").format(sql.Identifier(table_name)), (value, None, None ))
             # commit the changes to the database
             conn.commit()
             # close communication with the database
@@ -67,7 +74,7 @@ class DbAdapter:
         try:
             conn = psycopg2.connect(self.conn_string)
             cur = conn.cursor()
-            cur.execute(sql.SQL("SELECT 1 FROM {0} WHERE set_hash = %s LIMIT 1").format(sql.Identifier(table_name)), (value, ))
+            cur.execute(sql.SQL("SELECT 1 FROM {0} WHERE id = %s LIMIT 1").format(sql.Identifier(table_name)), (value, ))
             result = bool(cur.rowcount)
             cur.close()
         except (Exception, psycopg2.DatabaseError) as error:
@@ -86,7 +93,7 @@ class DbAdapter:
         try:
             conn = psycopg2.connect(self.conn_string)
             cur = conn.cursor()
-            cur.execute(sql.SQL("UPDATE {0} SET count = count + 1 WHERE set_hash = %s").format(sql.Identifier(table_name)), (value, ))
+            cur.execute(sql.SQL("UPDATE {0} SET count = count + 1 WHERE id = %s").format(sql.Identifier(table_name)), (value, ))
             # commit the changes to the database
             conn.commit()
             # get result
@@ -104,15 +111,17 @@ class DbAdapter:
 
 if __name__ == '__main__':
     db = DbAdapter()
-    db.create_table("example_cnf")
+    table_name = "cnf_{}".format(str(time.time()).replace(".", "_"))
+    print("table: " + table_name)
+    db.create_table(table_name)
     # insert
-    x = hashlib.md5(bytes("hello", "ascii")).digest()
-    db.insert_row("example_cnf", x)
+    x = hashlib.sha1(bytes("hello", "ascii")).digest()
+    db.insert_row(table_name, x)
     # check existence
-    if db.does_exist("example_cnf", x):
+    if db.does_exist(table_name, x):
         print("yes, exists")
     else:
         print("doesn't exist")
 
-    db.update_count("example_cnf", x)
+    db.update_count(table_name, x)
     
