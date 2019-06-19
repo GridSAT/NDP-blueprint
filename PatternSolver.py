@@ -66,7 +66,7 @@ class PatternSolver:
         setbefore = child_set.to_string()
         if child_set.value != None:
             if self.args.output_graph_file:
-                dot.node(str(child_set.id), setbefore)
+                dot.node(str(child_set.id), str(child_set.id) + "\\n" + setbefore)
             node_status = NODE_EVALUATED
 
         else:
@@ -94,7 +94,7 @@ class PatternSolver:
 
             if self.args.output_graph_file:
                 setafter = child_set.to_string()
-                dot.node(str(child_set.id), setbefore + "\\n" + setafter, color=nodecolor)
+                dot.node(str(child_set.id), str(child_set.id) + "\\n" + setbefore + "\\n" + setafter, color=nodecolor)
 
         return node_status
 
@@ -104,61 +104,44 @@ class PatternSolver:
         start_time = time.time()
         uniques = 0
         redundants = 0
-
         # graph drawing
-        node_id = 0
+        node_id = 1
         dot = Digraph(comment='The CNF Tree', format='svg')
         nodes_queue = []
         nodes_queue.append(root_set)
         root_set.id = node_id
-        node_id += 1
         uniques += 1
-        
-        logger.debug("Set #{} - to root set to {} mode".format(node_id, self.args.mode))
+
+        logger.debug("Set #{} - to root set to {} mode".format(root_set.id, self.args.mode))
         setbefore = root_set.to_string()
         root_set.to_lo_condition(self.args.mode)
         setafterhash = root_set.get_hash()
         self.add_encountered_set(setafterhash)
         if self.args.output_graph_file:
             setafter = root_set.to_string()
-            dot.node(str(root_set.id), setbefore + "\\n" + setafter, color='black')
+            dot.node(str(root_set.id), str(root_set.id) + "\\n" + setbefore + "\\n" + setafter, color='black')
 
         while len(nodes_queue):            
             cnf_set = nodes_queue.pop(0)
 
             # evaluate
-            logger.info("Set #{0}".format(node_id))
+            logger.info("Set #{0}".format(cnf_set.id))
             (s1, s2) = cnf_set.evaluate()
-
-            if s1 != None:
-                s1.id = node_id
+                        
+            for child in (s1, s2):
                 node_id += 1
-
+                child.id = node_id
+                
                 if self.args.output_graph_file:
-                    dot.edge(str(cnf_set.id), str(s1.id))
+                    dot.edge(str(cnf_set.id), str(child.id))
 
-                node_status = self.process_child_node(s1, dot)
+                node_status = self.process_child_node(child, dot)
                 if node_status == NODE_UNIQUE:
                     uniques += 1
-                    nodes_queue.append(s1)
+                    nodes_queue.append(child)
                 elif node_status == NODE_REDUNDANT:
                     redundants += 1
-
-
-            if s2 != None:
-                s2.id = node_id
-                node_id += 1
-
-                if self.args.output_graph_file:     
-                    dot.edge(str(cnf_set.id), str(s2.id))
-
-                node_status = self.process_child_node(s2, dot)
-                if node_status == NODE_UNIQUE:
-                    uniques += 1
-                    nodes_queue.append(s2)
-                elif node_status == NODE_REDUNDANT:
-                    redundants += 1
-                       
+            
 
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
