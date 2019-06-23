@@ -3,10 +3,36 @@ from configs import *
 from Clause import *
 
 class Set:
+    
 
-    clauses = []
-    value = None    # unknown, not evaluated
-    id = 0
+    def __init__(self, str_input=None):
+
+        self.clauses = []
+        self.value = None
+        self.id = 0
+        # create a Set object from input string
+        if str_input:
+            seq = str_input
+            try:
+                seq = seq.replace('(', '')
+                seq = seq.replace(')', '')
+                clauses = seq.split('&')
+                clauses_set = []
+                for cl in clauses:
+                    s = cl.split('|')
+                    # remove duplicates within clause
+                    s = frozenset(map(int, s))
+                    
+                    # adding in a set container will remove duplicate clauses but will shuffle input order, so don't do it   
+                    clauses_set.append(s)
+
+                # create clauses objects
+                for cl in clauses_set:
+                    self.add_clause(Clause(cl))
+
+            except Exception as e:
+                print("Error: " + str(e))
+            
 
     # when all clauses in a set get evaluated, then the set has a final value
     def set_value(self, val):
@@ -33,6 +59,7 @@ class Set:
 
     def sort_clauses(self):
         self.clauses = sorted(self.clauses)
+        #self.clauses.sort()
 
     def rename_vars(self):
         # start from 1

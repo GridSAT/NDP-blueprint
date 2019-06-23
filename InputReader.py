@@ -39,30 +39,8 @@ class InputReader:
     # Parsing Single Line format
     def __parse_single_line_input(self, str_input):
         
-        seq = str_input
-        # generate objects
-        CnfSet = Set()
-        try:
-            seq = seq.replace('(', '')
-            seq = seq.replace(')', '')
-            clauses = seq.split('&')
-            clauses_set = []
-            for cl in clauses:
-                s = cl.split('|')
-                # remove duplicates within clause
-                s = frozenset(map(int, s))
-                
-                # adding in a set container will remove duplicate clauses    
-                clauses_set.append(s)
-
-            # create clauses objects
-            for cl in clauses_set:                
-                # a clause gets sorted automatically when the clause object is created
-                CnfSet.add_clause(Clause(cl))
-
-        except Exception as e:
-            print("Error: " + str(e))
-        
+        # generate object
+        CnfSet = Set(str_input)
         return CnfSet
 
 

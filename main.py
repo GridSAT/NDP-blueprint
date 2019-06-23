@@ -5,6 +5,7 @@ from Set import *
 from Clause import *
 from PatternSolver import *
 from InputReader import InputReader
+import configs
 
 # todo: 
 # - Handle if input has [x, -x]. What I did now is to normalize the clause once it get read. However, this will not enable us to 
@@ -25,8 +26,7 @@ class CnfGraph:
         print(self.content)
 
 
-def Main(args):
-
+def Main(args):    
     # determine input type/format
     input_type = None
     input_content = None
@@ -45,17 +45,17 @@ def Main(args):
 
     # begin logic
     CnfSet = None
-    # try:
-    input_reader = InputReader(input_type, input_content)
-    CnfSet = input_reader.get_cnf_set()
+    try:
+        input_reader = InputReader(input_type, input_content)
+        CnfSet = input_reader.get_cnf_set()
 
-    # start processing the root set
-    if len(CnfSet.clauses) > 0 or CnfSet.value != None:
-        PAT = PatternSolver(args=args)
-        PAT.process_set(CnfSet)
+        # start processing the root set
+        if len(CnfSet.clauses) > 0 or CnfSet.value != None:
+            PAT = PatternSolver(args=args, problem_id=CnfSet.get_hash().hex())
+            PAT.process_set(CnfSet)
 
-    # except Exception as e:
-    #     logger.critical("Error - {0}".format(str(e)))
+    except Exception as e:
+        logger.critical("Error - {0}".format(str(e)))
         
 
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     group2.add_argument("-lf", "--line-input-file", type=argparse.FileType('r'), help="Represent the input set in one line stored in a file. Format: a|b|c&d|e|f ...")
     group2.add_argument("-d", "--dimacs", type=argparse.FileType('r'), help="File name to contain the set in DIMACS format. See http://bit.ly/dimcasf")
     parser.add_argument("-g", "--output-graph-file", type=str, help="Output graph file in Graphviz format")
-    parser.add_argument("-ud", "--use-db", help="Use database for set lookup", action="store_true")
+    parser.add_argument("-db", "--use-db", help="Use database for set lookup", action="store_true")
     parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
     flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)
     lo: Linearily ordered, where only the root node will be brought to L.O. condition while the rest of the nodes will be brought to L.O.U. condition.
