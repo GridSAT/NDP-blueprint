@@ -1,8 +1,9 @@
 class Clause:
-
-    raw = []
-    value = None
+    
     def __init__(self, inp):
+        self.raw = []
+        self.value = None
+
         if type(inp) is list or type(inp) is frozenset:
             self.raw = list(inp)
             self.sort()
