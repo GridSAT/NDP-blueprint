@@ -15,24 +15,24 @@ class SuperQueue:
     qhead = -1
     db = None
     table_name = None
-    use_db = False
+    use_runtime_db = False
 
-    def __init__(self, use_db=False, problem_id=PROBLEM_ID):
+    def __init__(self, use_runtime_db=False, problem_id=PROBLEM_ID):
         self.db = DbAdapter()
         self.table_name = "queue_{}_{}".format(problem_id, str(time.time()).replace(".", ""))
-        self.use_db = use_db
-        if use_db:
+        self.use_runtime_db = use_runtime_db
+        if use_runtime_db:
             self.db.rtq_create_table(self.table_name)
         
 
     def __del__(self):        
         #drop table
-        if self.use_db:
+        if self.use_runtime_db:
             self.db.rtq_cleanup(self.table_name)
 
     def insert(self, item):
                
-        if self.use_db:
+        if self.use_runtime_db:
             self.idsqueue.append(item.id)
             self.db.rtq_insert_set(self.table_name, item.id, item.to_string(pretty=False))
         else:
@@ -42,9 +42,9 @@ class SuperQueue:
 
     def pop(self):
         item = None
-        if self.use_db:
+        if self.use_runtime_db:
             objid = self.idsqueue.pop(0)            
-            if self.use_db:
+            if self.use_runtime_db:
                 id, body = self.db.rtq_get_set(self.table_name, objid)
                 item = Set.Set(body)
                 item.id = id
@@ -56,7 +56,7 @@ class SuperQueue:
 
     def is_empty(self):
         size = 0
-        if self.use_db:
+        if self.use_runtime_db:
             size = len(self.idsqueue)
         else:
             size = len(self.objqueue)

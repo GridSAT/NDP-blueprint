@@ -64,17 +64,17 @@ class DbAdapter:
             logger.error("DB Error: " + str(error))
  
  
-    def gs_insert_row(self, table_name, value):
+    def gs_insert_row(self, table_name, hash, set_body, child1_hash, child2_hash, mapping, count, num_of_clauses, num_of_vars):
 
         """ insert a row item into the table """
         success = False
         try:            
             # execute the INSERT statement
             #self.cur.execute(sql.SQL("insert into {} values (%s, %s)").format(sql.Identifier('my_table')), [10, 20])
-            self.cur.execute(sql.SQL("INSERT INTO {0}(hash, cid1, cid2) VALUES(%s, %s, %s)").format(sql.Identifier(table_name)), (value, None, None ))
-            
+            self.cur.execute(sql.SQL("INSERT INTO {0}(hash, body, cid1, cid2, mapping, count, num_of_clauses, num_of_vars) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(table_name)), (hash, set_body, child1_hash, child2_hash, mapping, count, num_of_clauses, num_of_vars))
             success = True
         except (Exception, psycopg2.DatabaseError) as error:
+            self.conn.commit()
             logger.error("DB Error: " + str(error))
             success = False
     
@@ -102,6 +102,20 @@ class DbAdapter:
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
             result = False
+
+        return result
+
+
+    def gs_load_sets(self, table_name, num_clauses):
+        result = []
+        try:
+            self.cur.execute(sql.SQL("SELECT hash FROM {0} WHERE num_of_clauses <= %s").format(sql.Identifier(table_name)), (num_clauses, ))
+            rows = self.cur.fetchall()
+            for row in rows:
+                result.append(bytes(row[0]))
+
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
 
         return result
 

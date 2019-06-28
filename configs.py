@@ -15,6 +15,8 @@ DB_PORT=5432
 DB_NAME="patternsolvers"
 DB_USER="mesaleh"
 DB_PASSWORD="951753saleh"
+GLOBAL_SETS_TABLE_PREFIX = "globalsetstable_"
+GLOBAL_SETS_TABLE = GLOBAL_SETS_TABLE_PREFIX
 
 # constants
 NODE_UNIQUE = 0

@@ -147,7 +147,8 @@ class Set:
 
         left_clauses = []
         right_clauses = []
-        for cl in self.clauses:
+        for c in self.clauses:
+            cl = Clause(c.raw)
             # remove clause, i.e. set the var to true
             if pivot == cl.raw[0]:
                 # for left branch, the clause will be set to true. i.e. removed. (will not be addd to left_clauses)

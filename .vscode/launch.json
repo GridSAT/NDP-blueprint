@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
-            "args": ["-lf", "${workspaceFolder}/inputs/in.txt", "-m", "lo", "-db", "-v"]
+            "args": ["-lf", "${workspaceFolder}/inputs/in.txt", "-m", "flo", "-gdb", "-vv"]
         },
         {
             "name": "Python: Remote Attach",
