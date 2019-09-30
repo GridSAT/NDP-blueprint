@@ -1,0 +1,1 @@
+ dot -Tsvg -o d:\Projects\NasserPatternSolver-python\inputs\test_cases\Factoring2_5.svg -Tsvg d:\Projects\NasserPatternSolver-python\inputs\test_cases\Factoring2_5.graph

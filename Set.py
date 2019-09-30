@@ -150,22 +150,22 @@ class Set:
         for c in self.clauses:
             cl = Clause(c.raw)
             # remove clause, i.e. set the var to true
-            if pivot == cl.raw[0]:
-                # for left branch, the clause will be set to true. i.e. removed. (will not be addd to left_clauses)
+            if pivot in cl.raw:
+                # for left branch, the clause will be set to true. i.e. removed. (will not be added to left_clauses)
                 
                 # for right branch, remove the var from the clause
-                cl.raw.pop(0)
+                cl.raw.pop(cl.raw.index(pivot))
                 if len(cl.raw) > 0:
                     right_clauses.append(Clause(cl.raw))
                 # if it's the last variable, then the clause will be evaluated to False, then all the Set will be False
                 else:
                     right_set.set_value(False)
             # if it's negated, remove it from the clause and return the rest
-            elif pivot == -cl.raw[0]:
+            elif -pivot in cl.raw:
                 # for right branch, the clause will be set to true. i.e. removed.
 
                 # for left branch, remove the var from the clause
-                cl.raw.pop(0)
+                cl.raw.pop(cl.raw.index(-pivot))
                 if len(cl.raw) > 0:
                     left_clauses.append(Clause(cl.raw))
                 # if it's the last variable, then the clause will be evaluated to False
