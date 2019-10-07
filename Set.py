@@ -121,9 +121,29 @@ class Set:
 
         return True
 
+    # bring ONLY unit clauses to the far left (front of the set)
+    def place_unit_clauses_first(self):
         
+        def ShiftUnit(cl):
+            if len(cl.raw) == 1:
+                return -1
+            return 1
+
+        if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
+            self.clauses.sort(key=ShiftUnit)
+
+
+
     # convert to L.O. condition
     def to_lo_condition(self, mode=MODE_LO):
+
+        if mode == MODE_FLOP:
+            # bring unit clauses to the front of the set
+            self.place_unit_clauses_first()
+
+        # rename
+        self.rename_vars()
+
         # check L.O. conditions
         while not self.is_in_lo_state(mode):        
             # rename

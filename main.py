@@ -78,10 +78,11 @@ if __name__ == "__main__":
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
     parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
     flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)
+    flo+: Linearily ordered, where all nodes in the tree will be brought to L.O. condition, clauses are sorted per size. (default)
     lo: Linearily ordered, where only the root node will be brought to L.O. condition while the rest of the nodes will be brought to L.O.U. condition.
     lou: Linearily ordered universal, where all nodes in the tree will be brought to L.O.U. condition.
     normal: Don't use Nasser's algorithm and use a normal evaluation of the set with no preprocessing steps except for ascending sorting of vars within each clause.
-            '''), choices=['flo', 'lo', 'lou', 'normal'], default="flo")
+            '''), choices=['flo', 'flo+', 'lo', 'lou', 'normal'], default="flo")
     #parser.add_argument('--version', action='version', version='%(prog)s 1.1') # can use GitPython to automatically get latest tag here
 
     args = parser.parse_args()
