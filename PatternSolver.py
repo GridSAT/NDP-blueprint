@@ -2,6 +2,7 @@ import os, gc
 import sys
 import time, math
 import psutil
+import binascii
 from graphviz import Digraph
 from queue import Queue
 from configs import *
@@ -104,7 +105,7 @@ class PatternSolver:
         setbefore = child_set.to_string()
         if child_set.value != None:
             if self.args.output_graph_file:
-                dot.node(str(child_set.id), str(child_set.id) + "\\n" + setbefore)
+                dot.node(binascii.hexlify(child_set.get_hash()).decode(), str(child_set.id) + "\\n" + setbefore)
             node_status = NODE_EVALUATED
 
         else:
@@ -124,15 +125,18 @@ class PatternSolver:
                 node_status = NODE_REDUNDANT
                 if self.args.output_graph_file:
                     nodecolor = 'red'
+
+                if self.args.output_graph_file:
+                    dot.node(binascii.hexlify(child_set.get_hash()).decode(), color=nodecolor)
             
             else:                
                 # when the set reaches l.o. condition, we update the global sets record
                 node_status = NODE_UNIQUE
                 self.save_unique_node(setafterhash)
 
-            if self.args.output_graph_file:
-                setafter = child_set.to_string()
-                dot.node(str(child_set.id), str(child_set.id) + "\\n" + setbefore + "\\n" + setafter, color=nodecolor)
+                if self.args.output_graph_file:
+                    setafter = child_set.to_string()
+                    dot.node(binascii.hexlify(child_set.get_hash()).decode(), setbefore + "\\n" + setafter, color=nodecolor)
 
         return node_status
 
@@ -141,15 +145,25 @@ class PatternSolver:
         
         start_time = time.time()
         uniques = redundants = leaves = 0
+
+        # vars to calculate graph size at the end
+        id_leaves = set()   # node ids of leaf nodes
+        id_pid = {}         # id to [parent ids]
+        id_size = {}        # id to subgraph size
+
         
         # use global sets table
         if self.args.use_global_db:
+            # create the table if not exist
+            self.db_adaptor.gs_create_table(self.global_table_name)
             self.load_set_records(len(root_set.clauses))
 
         # graph drawing
         node_id = 1
         root_set.id = node_id
-        dot = Digraph(comment='The CNF Tree', format='svg')
+        graph_attr={}
+        graph_attr["splines"] = "polyline"
+        dot = Digraph(comment='The CNF Tree', format='svg', graph_attr=graph_attr)
         uniques += 1
 
         logger.debug("Set #{} - to root set to {} mode".format(root_set.id, self.args.mode))
@@ -158,10 +172,7 @@ class PatternSolver:
         setafterhash = root_set.get_hash()
 
         # check if we have processed the CNF before
-        if self.is_set_seen(setafterhash):
-            self.save_unique_node(setafterhash)
-
-        else:
+        if not self.is_set_seen(setafterhash):
             try:
                 squeue = SuperQueue.SuperQueue(use_runtime_db=self.use_runtime_db, problem_id=self.problem_id)        
                 squeue.insert(root_set)
@@ -171,7 +182,7 @@ class PatternSolver:
                 
             if self.args.output_graph_file:
                 setafter = root_set.to_string()
-                dot.node(str(root_set.id), str(root_set.id) + "\\n" + setbefore + "\\n" + setafter, color='black')
+                dot.node(binascii.hexlify(root_set.get_hash()).decode(), str(root_set.id) + "\\n" + setbefore + "\\n" + setafter, color='black')
 
             while not squeue.is_empty():
                 cnf_set = squeue.pop()
@@ -184,10 +195,11 @@ class PatternSolver:
                     node_id += 1
                     child.id = node_id
                     
-                    if self.args.output_graph_file:
-                        dot.edge(str(cnf_set.id), str(child.id))
-
                     node_status = self.process_child_node(child, dot)
+
+                    if self.args.output_graph_file:
+                        dot.edge(binascii.hexlify(cnf_set.get_hash()).decode(), binascii.hexlify(child.get_hash()).decode())
+
                     if node_status == NODE_UNIQUE:
                         uniques += 1
                         squeue.insert(child)
@@ -199,11 +211,30 @@ class PatternSolver:
                 # cnf nodes in this loop are all unique, if they weren't they wouldn't be in the queue
                 self.save_parent_children(cnf_set, s1.get_hash(), s2.get_hash())
 
+                # save parent id of children if not boolean
+                if s1.value == None:
+                    id_pid[s1.id] = cnf_set.id
+                if s2.value == None:
+                    id_pid[s2.id] = cnf_set.id
+
+                # if both children are boolean, then cnf_set is a leaf node
+                if s1.value != None and s2.value != None:
+                    id_leaves.add(cnf_set.id)
+                    id_size[cnf_set.id] = 1
+
                 if self.args.verbos:
                     print("Nodes so far: {:,}".format(node_id), end='\r')
 
             
-        print("\n")
+            # update the database with the graph size under each node
+            #update_subgraph_sizes(id_leaves, id_pid, id_size)
+
+        else:
+            if self.args.verbos:
+                print("Input set is found in the global DB")
+
+            
+        #print("\n")
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time)
@@ -224,4 +255,11 @@ class PatternSolver:
         if self.args.quiet == False:
             print("Execution finished!")
             print(stats.replace("\\n", "\n"))
+
+
+    # update the size of sub graphs
+    # def update_subgraph_sizes(id_leaves, id_pid, id_size):
+    #     # starting for leaf nodes, set the number of nodes under each node
+    #     for child_id in id_leaves:
+    #         for parent in id_pid[child_id]:
 

@@ -39,7 +39,7 @@ class DbAdapter:
     def gs_create_table(self, table_name):
         """ create tables in the PostgreSQL database"""
         table_command = """
-                CREATE TABLE {0} (
+                CREATE TABLE IF NOT EXISTS {0} (
                 hash BYTEA PRIMARY KEY,
                 body TEXT,
                 cid1 BYTEA,
@@ -47,13 +47,15 @@ class DbAdapter:
                 mapping INTEGER[],
                 count INTEGER DEFAULT 1,
                 num_of_clauses INTEGER DEFAULT 0,
-                num_of_vars INTEGER DEFAULT 0
+                num_of_vars INTEGER DEFAULT 0,
+                size INTEGER DEFAULT 1,
+                UNIQUE(hash, cid1, cid2)
             )
             """.format(table_name)
 
         # be aware that creating an index on table with exaustive inserts can slow it down. Check the speed without the index and compare.
-        index_command1 = "CREATE INDEX num_clauses ON {0} (num_of_clauses)".format(table_name)
-        index_command2 = "CREATE INDEX num_vars ON {0} (num_of_vars)".format(table_name)
+        index_command1 = "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name)
+        index_command2 = "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name)
 
         try:
             # create table 

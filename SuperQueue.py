@@ -43,11 +43,10 @@ class SuperQueue:
     def pop(self):
         item = None
         if self.use_runtime_db:
-            objid = self.idsqueue.pop(0)            
-            if self.use_runtime_db:
-                id, body = self.db.rtq_get_set(self.table_name, objid)
-                item = Set.Set(body)
-                item.id = id
+            objid = self.idsqueue.pop(0)
+            id, body = self.db.rtq_get_set(self.table_name, objid)
+            item = Set.Set(body)
+            item.id = id
 
         else:
             item = self.objqueue.pop(0)
