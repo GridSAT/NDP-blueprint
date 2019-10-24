@@ -70,5 +70,5 @@ digraph {
 	"7984b0a0e139cabadb5afc7756d473fb34d23819" -> e69f20e9f683920d3fb4329abd951e878b1f9372
 	c2c53d66948214258a26ca9ca845d7ac0c17f8e7 [label="35\nT"]
 	"7984b0a0e139cabadb5afc7756d473fb34d23819" -> c2c53d66948214258a26ca9ca845d7ac0c17f8e7
-	stats [label="Input set processed in 0.142 seconds\nProblem ID: 4fb7aa4e244a8b3f3d2f0f139afe0fbf8d4e507e\nSolution mode: LO\nTotal number of nodes: 35\nNumber of unique nodes: 17\nNumber of redundant subtrees: 5\nNumber of leaves nodes: 13\nCurrent memory usage: 17.6MiB" shape=record style=dotted]
+	stats [label="Input set processed in 8.881 seconds\nProblem ID: 4fb7aa4e244a8b3f3d2f0f139afe0fbf8d4e507e\nSolution mode: LO\nTotal number of nodes: 35\nNumber of unique nodes: 17\nNumber of redundant subtrees: 5\nNumber of leaves nodes: 13\nCurrent memory usage: 37.3MiB" shape=record style=dotted]
 }

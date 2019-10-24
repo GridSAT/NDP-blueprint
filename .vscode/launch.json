@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
-            "args": ["-lf", "${workspaceFolder}/inputs/in.txt", "-m", "lo", "-g", "d:\\Projects\\NasserPatternSolver-python\\inputs\\in.graph", "-v"]
+            //"args": ["-lf", "${workspaceFolder}/inputs/in.txt", "-m", "lo", "-g", "d:\\Projects\\NasserPatternSolver-python\\inputs\\in.graph", "-v"]
+            "args": ["-lf", "${workspaceFolder}/inputs/in.txt", "-m", "lou", "-gdb", "-v"]
         },
         {
             "name": "Python: Remote Attach",

@@ -36,6 +36,11 @@ logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S
 logger = logging.getLogger('NSS')
 logger.setLevel(logging.WARNING)
 
+# Error codes
+SUCCESS = 1
+DB_UNIQUE_VIOLATION = -1
+DB_UNKNOWN_ERROR = -2
+
 
 # generate problem ID
 PROBLEM_ID = str(uuid.uuid4()).replace('-', '_')

@@ -66,7 +66,7 @@ class PatternSolver:
     def load_set_records(self, num_clauses):
         if self.args.use_global_db:
             hashes = self.db_adaptor.gs_load_sets(self.global_table_name, num_clauses)
-            self.setmap = {el:1 for el in hashes}        
+            self.setmap = {el:1 for el in hashes}     
             
     def is_set_seen(self, set_hash):
         return self.setmap.get(set_hash, False)
@@ -84,7 +84,7 @@ class PatternSolver:
             num_of_vars = abs(cnf_set.clauses[-1].raw[-1])
 
         if self.args.use_global_db:
-            self.db_adaptor.gs_insert_row(self.global_table_name,
+            return self.db_adaptor.gs_insert_row(self.global_table_name,
                                          cnf_set.get_hash(),    # set hash
                                          cnf_set.to_string(pretty=False),   # set body
                                          child1_hash,           # child 1 hash
@@ -94,10 +94,9 @@ class PatternSolver:
                                          len(cnf_set.clauses),  # count of clauses
                                          num_of_vars)  
                                          
-
+        return SUCCESS
         
     def process_child_node(self, child_set, dot):
-
         node_status = None
         nodecolor = 'black'
 
@@ -195,21 +194,28 @@ class PatternSolver:
                     node_id += 1
                     child.id = node_id
                     
-                    node_status = self.process_child_node(child, dot)
+                    child.status = self.process_child_node(child, dot)
 
                     if self.args.output_graph_file:
                         dot.edge(binascii.hexlify(cnf_set.get_hash()).decode(), binascii.hexlify(child.get_hash()).decode())
 
-                    if node_status == NODE_UNIQUE:
-                        uniques += 1
-                        squeue.insert(child)
-                    elif node_status == NODE_REDUNDANT:
+                    if child.status == NODE_UNIQUE:
+                        uniques += 1                        
+                    elif child.status == NODE_REDUNDANT:
                         redundants += 1
-                    elif node_status == NODE_EVALUATED:
+                    elif child.status == NODE_EVALUATED:
                         leaves += 1
 
                 # cnf nodes in this loop are all unique, if they weren't they wouldn't be in the queue
-                self.save_parent_children(cnf_set, s1.get_hash(), s2.get_hash())
+                # if insertion in the global table is successful, save children in the queue, 
+                # otherwise, the cnf_set is already solved in the global DB table
+                global_save_status = self.save_parent_children(cnf_set, s1.get_hash(), s2.get_hash())
+                if global_save_status == SUCCESS:
+                    for child in (s1, s2):
+                        if child.status == NODE_UNIQUE:
+                            squeue.insert(child)
+                elif global_save_status == DB_UNIQUE_VIOLATION:
+                    logger.info("Node #{} is already found 'during execution' in global DB.".format(cnf_set.id))
 
                 # save parent id of children if not boolean
                 if s1.value == None:

@@ -45,13 +45,15 @@ class DbAdapter:
                 cid1 BYTEA,
                 cid2 BYTEA,
                 mapping INTEGER[],
-                count INTEGER DEFAULT 1,
+                count INTEGER DEFAULT 0,
                 num_of_clauses INTEGER DEFAULT 0,
                 num_of_vars INTEGER DEFAULT 0,
                 size INTEGER DEFAULT 1,
+                date_created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 UNIQUE(hash, cid1, cid2)
             )
             """.format(table_name)
+        # the UNIQUE constraint will prevent any other process from writing the same data, the exception should be handled then
 
         # be aware that creating an index on table with exaustive inserts can slow it down. Check the speed without the index and compare.
         index_command1 = "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name)
@@ -69,16 +71,18 @@ class DbAdapter:
     def gs_insert_row(self, table_name, hash, set_body, child1_hash, child2_hash, mapping, count, num_of_clauses, num_of_vars):
 
         """ insert a row item into the table """
-        success = False
+        success = SUCCESS
         try:            
             # execute the INSERT statement
             #self.cur.execute(sql.SQL("insert into {} values (%s, %s)").format(sql.Identifier('my_table')), [10, 20])
             self.cur.execute(sql.SQL("INSERT INTO {0}(hash, body, cid1, cid2, mapping, count, num_of_clauses, num_of_vars) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(table_name)), (hash, set_body, child1_hash, child2_hash, mapping, count, num_of_clauses, num_of_vars))
-            success = True
-        except (Exception, psycopg2.DatabaseError) as error:
             self.conn.commit()
+        except (Exception, psycopg2.errors.UniqueViolation) as UniqueViolationError:
+            success = DB_UNIQUE_VIOLATION
+            logger.debug("Node is already found in the global DB")
+        except (Exception, psycopg2.DatabaseError) as error:            
             logger.error("DB Error: " + str(error))
-            success = False
+            success = DB_UNKNOWN_ERROR
     
         return success
 
