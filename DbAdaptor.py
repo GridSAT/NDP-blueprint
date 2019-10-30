@@ -44,38 +44,43 @@ class DbAdapter:
                 body TEXT,
                 cid1 BYTEA,
                 cid2 BYTEA,
-                mapping INTEGER[],
-                count INTEGER DEFAULT 0,
+                mapping INTEGER[],                
                 num_of_clauses INTEGER DEFAULT 0,
                 num_of_vars INTEGER DEFAULT 0,
-                size INTEGER DEFAULT 1,
+                unique_nodes INTEGER DEFAULT 0,
+                redundant_nodes INTEGER DEFAULT 0,
                 date_created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                UNIQUE(hash, cid1, cid2)
+                UNIQUE(hash)
             )
             """.format(table_name)
         # the UNIQUE constraint will prevent any other process from writing the same data, the exception should be handled then
 
         # be aware that creating an index on table with exaustive inserts can slow it down. Check the speed without the index and compare.
-        index_command1 = "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name)
-        index_command2 = "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name)
-
+        index_commands = [
+                "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name),
+                "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name),
+                "CREATE INDEX IF NOT EXISTS date_created ON {0} (date_created)".format(table_name)
+            ]
+        
         try:
             # create table 
             self.cur.execute(table_command)
-            self.cur.execute(index_command1)
-            self.cur.execute(index_command2)
+            # create indeces
+            for index_command in index_commands:
+                self.cur.execute(index_command)
+            
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
  
  
-    def gs_insert_row(self, table_name, hash, set_body, child1_hash, child2_hash, mapping, count, num_of_clauses, num_of_vars):
+    def gs_insert_row(self, table_name, hash, set_body, child1_hash, child2_hash, mapping, num_of_clauses, num_of_vars):
 
         """ insert a row item into the table """
         success = SUCCESS
         try:            
             # execute the INSERT statement
             #self.cur.execute(sql.SQL("insert into {} values (%s, %s)").format(sql.Identifier('my_table')), [10, 20])
-            self.cur.execute(sql.SQL("INSERT INTO {0}(hash, body, cid1, cid2, mapping, count, num_of_clauses, num_of_vars) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(table_name)), (hash, set_body, child1_hash, child2_hash, mapping, count, num_of_clauses, num_of_vars))
+            self.cur.execute(sql.SQL("INSERT INTO {0}(hash, body, cid1, cid2, mapping, num_of_clauses, num_of_vars) VALUES(%s, %s, %s, %s, %s, %s, %s)").format(sql.Identifier(table_name)), (hash, set_body, child1_hash, child2_hash, mapping, num_of_clauses, num_of_vars))
             self.conn.commit()
         except (Exception, psycopg2.errors.UniqueViolation) as UniqueViolationError:
             success = DB_UNIQUE_VIOLATION

@@ -90,7 +90,6 @@ class PatternSolver:
                                          child1_hash,           # child 1 hash
                                          child2_hash,           # child 2 hash
                                          [],                    # mapping, to be added
-                                         1,                     # occurrences                                         
                                          len(cnf_set.clauses),  # count of clauses
                                          num_of_vars)  
                                          
