@@ -8,7 +8,7 @@ from queue import Queue
 from configs import *
 from DbAdaptor import DbAdapter
 import SuperQueue
-
+from Set import Set
 
 # TODO:
 # We will have two DB tables:
@@ -32,11 +32,33 @@ import SuperQueue
 # to batch insert operations in GlobalSetsTable
 
 
+TRUE_SET_HASH = Set.calculate_hash('T')
+FALSE_SET_HASH = Set.calculate_hash('F')
+
+# An object represent a node in the graph
+class Node:
+    
+    def __init__(self):
+        self.seen_count = 1
+        self.parents = []
+        self.seen_count = 1
+        self.status = NODE_UNIQUE
+        self.subgraph_uniques = 1
+        self.subgraph_redundants = 0
+
+        # one of its decendants is a redundant, but it could be redundant with another subgraph
+        # has_potential_redundant is a flag that bubbles up from decendants to the parent.
+        # if a parent node found two children with the flag set to True, it means it has a redundant node in its subgraph
+        self.has_potential_redundant = False     
+
+
 class PatternSolver:
 
     # the dictionary that holds processed set
     # currently each key is the string represenation of the set, i.e. set.to_string()
-    setmap = {}
+    seen_sets = {}          # stores all nodes in global db
+    solved_sets = {}        # stores solved sets pulled from global db
+    graph = {}              # stores the nodes as we solve them
     args = None
     db_adaptor = None
     problem_id = None
@@ -44,8 +66,9 @@ class PatternSolver:
     global_table_name = GLOBAL_SETS_TABLE
 
     def __init__(self, args=None, problem_id=PROBLEM_ID):
-        self.setmap.clear()
+        self.seen_sets.clear()
         self.args = args
+        self.leaves = []
         if problem_id:
             self.problem_id = problem_id
 
@@ -65,27 +88,74 @@ class PatternSolver:
 
     def load_set_records(self, num_clauses):
         if self.args.use_global_db:
-            hashes = self.db_adaptor.gs_load_sets(self.global_table_name, num_clauses)
-            self.setmap = {el:1 for el in hashes}     
+            # load solved hashes
+            solve_hashes = self.db_adaptor.gs_load_solved_sets(self.global_table_name, num_clauses)
+            self.solved_sets = {el:1 for el in solve_hashes}
+            # load unsolved hashes
+            unsolve_hashes = self.db_adaptor.gs_load_unsolved_sets(self.global_table_name, num_clauses)
+            self.seen_sets = {el:1 for el in unsolve_hashes}
+            # combine solved and unsolved in seen_sets map
+            self.seen_sets.update(self.solved_sets)
             
-    def is_set_seen(self, set_hash):
-        return self.setmap.get(set_hash, False)
+    def get_children_from_gdb(self, set_hash):
+        result = ()
+        children = self.db_adaptor.gs_get_children(self.global_table_name, set_hash)        
+        for child_hash in children:
+            if child_hash == None:
+                return (None, None)
 
-    def update_set_seen_count(self, set_hash):
-        self.setmap[set_hash] += 1
+            child = Set()
+            if child_hash == TRUE_SET_HASH:
+                child.value = True
+            elif child_hash == FALSE_SET_HASH:
+                child.value = False
+            else:
+                # get the body from the db
+                set_body = self.db_adaptor.gs_get_body(self.global_table_name, child_hash)
+                if set_body == None:
+                    return (None, None)
 
-    def save_unique_node(self, set_hash):
-        self.setmap[set_hash] = 1
+                child = Set(set_body)
+            
+            result = result + (child, )
 
-    def save_parent_children(self, cnf_set, child1_hash, child2_hash):
+        return result
+
+    def is_in_graph(self, set_hash):
+        return self.graph.get(set_hash, False)
+
+    def is_set_in_gdb(self, set_hash):
+        return self.seen_sets.get(set_hash, False)
+
+    def is_set_solved(self, set_hash):
+        return self.solved_sets.get(set_hash, False)
+
+    def update_graph_node_count(self, set_hash):
+        # self.graph[set_hash].seen_count += 1
+        # self.graph[set_hash].status = NODE_REDUNDANT
+        self.seen_sets[set_hash] += 1 
+
+    def save_unique_node(self, set_hash, set_id):
+        # self.graph[set_hash] = Node()
+        self.graph[set_hash] = set_id
+
+    def save_parent_children(self, cnf_set, child1_hash, child2_hash):        
+        cnf_hash = cnf_set.get_hash()
+        # save to the graph. The only case where child hash wouldn't be in the graph is when it's for a leaf (true or false)
+        # if child1_hash not in (TRUE_SET_HASH, FALSE_SET_HASH):
+        #     self.graph[child1_hash].parents.append(cnf_set)
+        # if child2_hash not in (TRUE_SET_HASH, FALSE_SET_HASH):
+        #     self.graph[child2_hash].parents.append(cnf_set)
+        
         # add to global sets table
         num_of_vars = 0
         if len(cnf_set.clauses):
             num_of_vars = abs(cnf_set.clauses[-1].raw[-1])
 
-        if self.args.use_global_db:
+        # save the set in global DB if it's not there already
+        if self.args.use_global_db and not self.is_set_in_gdb(cnf_hash):
             return self.db_adaptor.gs_insert_row(self.global_table_name,
-                                         cnf_set.get_hash(),    # set hash
+                                         cnf_hash,              # set hash
                                          cnf_set.to_string(pretty=False),   # set body
                                          child1_hash,           # child 1 hash
                                          child2_hash,           # child 2 hash
@@ -95,46 +165,78 @@ class PatternSolver:
                                          
         return SUCCESS
         
+    # Construct graph stats. So each node in the graph has information about it's subgraph unique and redundant nodes count
+    def construct_graph_stats(self, nodes_parents, redundant_ids):
+        nodes_stats = []        # each element correspond to array [unique count, redundant count, has floating redundant]
+
+        # create queue to traverse the nodes
+        squeue = SuperQueue.SuperQueue(unique_queue=True, use_runtime_db=False)
+        
+        # populate nodes_stats with defaults
+        for _ in range(0, len(self.graph)+1):
+            nodes_stats.append([1,0,False])
+
+        # populate default stats for each node
+        for leaf_id in self.leaves:
+            squeue.insert(leaf_id)
+        
+        while not squeue.is_empty():
+            node_id = squeue.pop()
+
+            # If the node itself is redundant, that doesn't mean it has any redundant nodes in it's subgraph, 
+            # however, mark it as has floated redudant
+            if redundant_ids.get(node_id, False):
+                nodes_stats[node_id][HAS_FLOATED_REDUNDANT] = True
+            
+            # set data for parents
+            for parent_id in nodes_parents[node_id]:
+                nodes_stats[parent_id][UNIQUE_COUNT]            += nodes_stats[node_id][UNIQUE_COUNT]
+                nodes_stats[parent_id][REDUNDANT_COUNT]         += nodes_stats[node_id][REDUNDANT_COUNT]
+
+                # if a nodes's x parent is a parent to another nodex x parent
+                redundant_parents = list(set(nodes_parents[parent_id]) & set(nodes_parents[node_id]))
+                for redundant_parent in redundant_parents:
+                    nodes_stats[redundant_parent][UNIQUE_COUNT] -= 1
+                    nodes_stats[redundant_parent][REDUNDANT_COUNT] += 1
+
+                # for diamond shape nodes
+                if nodes_stats[parent_id][HAS_FLOATED_REDUNDANT] & nodes_stats[node_id][HAS_FLOATED_REDUNDANT]:
+                    nodes_stats[parent_id][REDUNDANT_COUNT] += 1
+                    nodes_stats[parent_id][HAS_FLOATED_REDUNDANT] = False
+                else:
+                    nodes_stats[parent_id][HAS_FLOATED_REDUNDANT] |= nodes_stats[node_id][HAS_FLOATED_REDUNDANT]
+
+                squeue.insert(parent_id)
+
+        return nodes_stats
+
+
     def process_child_node(self, child_set, dot):
         node_status = None
-        nodecolor = 'black'
 
         # check if the set is already evaluated to boolean value            
-        setbefore = child_set.to_string()
-        if child_set.value != None:
-            if self.args.output_graph_file:
-                dot.node(binascii.hexlify(child_set.get_hash()).decode(), str(child_set.id) + "\\n" + setbefore)
+        if child_set.value != None:            
             node_status = NODE_EVALUATED
 
         else:
             # if user input mode is MODE_LO, it means only root is LO and the rest are LOU, and since this is a child node, then pass LOU argument
             if self.args.mode == MODE_LO:                
-                logger.debug("Set #{} - convert to {} mode".format(child_set.id, MODE_LOU))
+                logger.debug("Set #{} - convert to {} mode".format(len(self.graph), MODE_LOU))
                 child_set.to_lo_condition(MODE_LOU)
             else:
-                logger.debug("Set #{} - convert to {} mode".format(child_set.id, self.args.mode))
+                logger.debug("Set #{} - convert to {} mode".format(len(self.graph), self.args.mode))
                 child_set.to_lo_condition(self.args.mode)
 
             setafterhash = child_set.get_hash()
-
             # check if we have processed the set before
-            if self.is_set_seen(setafterhash):
-                self.update_set_seen_count(setafterhash)
+            if self.is_in_graph(setafterhash):
+                child_set.id = self.graph[setafterhash]
+                self.update_graph_node_count(setafterhash)
                 node_status = NODE_REDUNDANT
-                if self.args.output_graph_file:
-                    nodecolor = 'red'
-
-                if self.args.output_graph_file:
-                    dot.node(binascii.hexlify(child_set.get_hash()).decode(), color=nodecolor)
             
             else:                
                 # when the set reaches l.o. condition, we update the global sets record
                 node_status = NODE_UNIQUE
-                self.save_unique_node(setafterhash)
-
-                if self.args.output_graph_file:
-                    setafter = child_set.to_string()
-                    dot.node(binascii.hexlify(child_set.get_hash()).decode(), setbefore + "\\n" + setafter, color=nodecolor)
 
         return node_status
 
@@ -145,9 +247,8 @@ class PatternSolver:
         uniques = redundants = leaves = 0
 
         # vars to calculate graph size at the end
-        id_leaves = set()   # node ids of leaf nodes
-        id_pid = {}         # id to [parent ids]
-        id_size = {}        # id to subgraph size
+        redundant_ids = {}  # ids of redundant nodes
+        nodes_parents = {}  # for every id, there's an array of parents
 
         
         # use global sets table
@@ -157,20 +258,22 @@ class PatternSolver:
             self.load_set_records(len(root_set.clauses))
 
         # graph drawing
-        node_id = 1
-        root_set.id = node_id
+        uniques += 1
+        root_set.id = uniques
         graph_attr={}
         graph_attr["splines"] = "polyline"
         dot = Digraph(comment='The CNF Tree', format='svg', graph_attr=graph_attr)
-        uniques += 1
-
+        
         logger.debug("Set #{} - to root set to {} mode".format(root_set.id, self.args.mode))
         setbefore = root_set.to_string()
         root_set.to_lo_condition(self.args.mode)
         setafterhash = root_set.get_hash()
-
+        
         # check if we have processed the CNF before
-        if not self.is_set_seen(setafterhash):
+        if not self.is_set_solved(setafterhash):
+            self.save_unique_node(setafterhash, root_set.id)
+            nodes_parents[root_set.id] = []
+
             try:
                 squeue = SuperQueue.SuperQueue(use_runtime_db=self.use_runtime_db, problem_id=self.problem_id)        
                 squeue.insert(root_set)
@@ -180,30 +283,55 @@ class PatternSolver:
                 
             if self.args.output_graph_file:
                 setafter = root_set.to_string()
-                dot.node(binascii.hexlify(root_set.get_hash()).decode(), str(root_set.id) + "\\n" + setbefore + "\\n" + setafter, color='black')
+                dot.node(str(root_set.id), str(root_set.id) + "\\n" + setbefore + "\\n" + setafter, color='black')
 
             while not squeue.is_empty():
                 cnf_set = squeue.pop()
-                logger.debug("Set #{0}".format(cnf_set.id))            
+                logger.debug("Set #{0}".format(cnf_set.id))
 
-                # evaluate
-                (s1, s2) = cnf_set.evaluate()
+                ## Evaluate
+                ## check first if the set is unsolved in the global db. If so, just grab the children from there.
+                ## if it's solved in gdb, it wouldn't be here in this loop at the first place.
+                s1 = s2 = None
+                ## although this step is working fine, but it slower down the program, so there's no need.
+                if self.args.use_global_db and self.is_set_in_gdb(cnf_set.get_hash()) and not self.is_set_solved(cnf_set.get_hash()):
+                    (s1, s2) = self.get_children_from_gdb(cnf_set.get_hash())
+                
+                if s1 == None or s2 == None:
+                    (s1, s2) = cnf_set.evaluate()
                 
                 for child in (s1, s2):
-                    node_id += 1
-                    child.id = node_id
+                    child_str_before = child.to_string()
                     
                     child.status = self.process_child_node(child, dot)
 
-                    if self.args.output_graph_file:
-                        dot.edge(binascii.hexlify(cnf_set.get_hash()).decode(), binascii.hexlify(child.get_hash()).decode())
-
+                    child_str_after = child.to_string()
+                    child_hash = child.get_hash()
+                    
                     if child.status == NODE_UNIQUE:
-                        uniques += 1                        
+                        uniques += 1 
+                        child.id = uniques
+                        self.save_unique_node(child_hash, child.id)
+                        # add parent
+                        nodes_parents[child.id] = [cnf_set.id]
+                        if self.args.output_graph_file:
+                            dot.node(str(child.id), str(child.id) + "\\n" + child_str_before + "\\n" + child_str_after, color='black')
+
                     elif child.status == NODE_REDUNDANT:
                         redundants += 1
+                        redundant_ids[self.graph[child_hash]] = 1
+                        nodes_parents[self.graph[child_hash]].append(cnf_set.id)
+                        if self.args.output_graph_file:
+                            dot.node(str(child.id), color='red')
+
                     elif child.status == NODE_EVALUATED:
                         leaves += 1
+                        if self.args.output_graph_file:
+                            child.id = child.to_string()
+                            dot.node(child.id, child.to_string())
+
+                    if self.args.output_graph_file:
+                        dot.edge(str(cnf_set.id), str(child.id))
 
                 # cnf nodes in this loop are all unique, if they weren't they wouldn't be in the queue
                 # if insertion in the global table is successful, save children in the queue, 
@@ -211,24 +339,17 @@ class PatternSolver:
                 global_save_status = self.save_parent_children(cnf_set, s1.get_hash(), s2.get_hash())
                 if global_save_status == SUCCESS:
                     for child in (s1, s2):
-                        if child.status == NODE_UNIQUE:
+                        if child.status == NODE_UNIQUE and not self.is_set_solved(child.get_hash()):
                             squeue.insert(child)
                 elif global_save_status == DB_UNIQUE_VIOLATION:
                     logger.info("Node #{} is already found 'during execution' in global DB.".format(cnf_set.id))
-
-                # save parent id of children if not boolean
-                if s1.value == None:
-                    id_pid[s1.id] = cnf_set.id
-                if s2.value == None:
-                    id_pid[s2.id] = cnf_set.id
-
+                
                 # if both children are boolean, then cnf_set is a leaf node
                 if s1.value != None and s2.value != None:
-                    id_leaves.add(cnf_set.id)
-                    id_size[cnf_set.id] = 1
+                    self.leaves.append(cnf_set.id)
 
                 if self.args.verbos:
-                    print("Nodes so far: {:,}".format(node_id), end='\r')
+                    print("Nodes so far: {:,} uniques and {:,} redundants...".format(uniques, redundants), end='\r')
 
             
             # update the database with the graph size under each node
@@ -238,14 +359,19 @@ class PatternSolver:
             if self.args.verbos:
                 print("Input set is found in the global DB")
 
-            
+        # Solving the set is done, let's get the number of unique and redundant nodes
+        nodes_stats = self.construct_graph_stats(nodes_parents, redundant_ids)
+        print()
+        for node_id in range(1, len(self.graph)+1):
+            print(f"{node_id} - {nodes_stats[node_id]}")
+
+
         #print("\n")
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time)
         stats += '\\n' + "Problem ID: {0}".format(self.problem_id)
         stats += '\\n' + "Solution mode: {0}".format(self.args.mode.upper())
-        stats += '\\n' + "Total number of nodes: {0}".format(node_id)
         stats += '\\n' + "Number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Number of redundant subtrees: {0}".format(redundants)
         stats += '\\n' + "Number of leaves nodes: {0}".format(leaves)
@@ -258,7 +384,7 @@ class PatternSolver:
             self.draw_graph(dot, self.args.output_graph_file)
 
         if self.args.quiet == False:
-            print("Execution finished!")
+            print("\nExecution finished!")
             print(stats.replace("\\n", "\n"))
 
 

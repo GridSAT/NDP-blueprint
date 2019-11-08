@@ -234,11 +234,22 @@ class Set:
             res = '&'.join(res_arr)
             
         return res
+
+    @staticmethod
+    def calculate_hash(input_str):
+        # sha1 hash
+        return hashlib.sha1(bytes(input_str, "ascii")).digest() 
         
     def get_hash(self):
-        # sha1 hash
-        return hashlib.sha1(bytes(self.to_string(pretty=False), "ascii")).digest()
-
+        return Set.calculate_hash(self.to_string(pretty=False))
 
     def print_set(self):
         print(self.to_string())
+    
+    @staticmethod
+    def get_true_set_hash():
+        return Set.calculate_hash('T')
+    
+    @staticmethod
+    def get_false_set_hash():
+        return Set.calculate_hash('F')

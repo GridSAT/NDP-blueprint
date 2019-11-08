@@ -49,6 +49,7 @@ class DbAdapter:
                 num_of_vars INTEGER DEFAULT 0,
                 unique_nodes INTEGER DEFAULT 0,
                 redundant_nodes INTEGER DEFAULT 0,
+                is_redundant BOOLEAN DEFAULT FALSE,
                 date_created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 UNIQUE(hash)
             )
@@ -59,7 +60,8 @@ class DbAdapter:
         index_commands = [
                 "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name),
                 "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name),
-                "CREATE INDEX IF NOT EXISTS date_created ON {0} (date_created)".format(table_name)
+                "CREATE INDEX IF NOT EXISTS date_created ON {0} (date_created)".format(table_name),
+                "CREATE INDEX IF NOT EXISTS unique_nodes ON {0} (unique_nodes)".format(table_name)
             ]
         
         try:
@@ -116,11 +118,11 @@ class DbAdapter:
 
         return result
 
-
-    def gs_load_sets(self, table_name, num_clauses):
+    # load only solved sets (only solved sets have unique_nodes > 0)
+    def gs_load_solved_sets(self, table_name, num_clauses):
         result = []
         try:
-            self.cur.execute(sql.SQL("SELECT hash FROM {0} WHERE num_of_clauses <= %s").format(sql.Identifier(table_name)), (num_clauses, ))
+            self.cur.execute(sql.SQL("SELECT hash FROM {0} WHERE num_of_clauses <= %s AND unique_nodes > 0").format(sql.Identifier(table_name)), (num_clauses, ))
             rows = self.cur.fetchall()
             for row in rows:
                 result.append(bytes(row[0]))
@@ -130,6 +132,43 @@ class DbAdapter:
 
         return result
 
+    # load only unsolved sets (only unsolved sets have unique_nodes = 0)
+    def gs_load_unsolved_sets(self, table_name, num_clauses):
+        result = []
+        try:
+            self.cur.execute(sql.SQL("SELECT hash FROM {0} WHERE num_of_clauses <= %s AND unique_nodes = 0").format(sql.Identifier(table_name)), (num_clauses, ))
+            rows = self.cur.fetchall()
+            for row in rows:
+                result.append(bytes(row[0]))
+
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
+
+        return result
+
+    def gs_get_children(self, table_name, set_hash):
+        result = (None, None)
+        try:
+            self.cur.execute(sql.SQL("SELECT cid1, cid2 FROM {0} WHERE hash = %s").format(sql.Identifier(table_name)), (set_hash, ))
+            row = self.cur.fetchone()
+            result = (bytes(row[0]), bytes(row[1]))
+
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
+
+        return result
+    
+    def gs_get_body(self, table_name, set_hash):
+        result = None
+        try:
+            self.cur.execute(sql.SQL("SELECT body FROM {0} WHERE hash = %s").format(sql.Identifier(table_name)), (set_hash, ))
+            row = self.cur.fetchone()
+            result = row[0]
+
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
+
+        return result
 
     ### RunTimeQueue methods ###
 

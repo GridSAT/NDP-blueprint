@@ -2,6 +2,9 @@ import time
 import Set
 from DbAdaptor import DbAdapter
 from configs import PROBLEM_ID
+from collections import deque
+from collections import OrderedDict
+from ordered_set import OrderedSet
 
 ''' Queue that uses both memory and database to hold big number of object efficiently '''
 # will save ids in memory, while the objects will be saved in DB
@@ -10,14 +13,16 @@ from configs import PROBLEM_ID
 
 class SuperQueue:
 
-    objqueue = []   # queue of objects
-    idsqueue = []   # queue of objects ids
-    qhead = -1
-    db = None
-    table_name = None
-    use_runtime_db = False
+    def __init__(self, unique_queue=False, use_runtime_db=False, problem_id=PROBLEM_ID):
 
-    def __init__(self, use_runtime_db=False, problem_id=PROBLEM_ID):
+        self.unique_queue = unique_queue
+        if unique_queue:            
+            self.objqueue = OrderedSet()
+            self.idsqueue = OrderedSet()   # queue of objects ids
+        else:
+            self.objqueue = deque()   # queue of objects
+            self.idsqueue = deque()   # queue of objects ids
+
         self.db = DbAdapter()
         self.table_name = "queue_{}_{}".format(problem_id, str(time.time()).replace(".", ""))
         self.use_runtime_db = use_runtime_db
@@ -25,31 +30,44 @@ class SuperQueue:
             self.db.rtq_create_table(self.table_name)
         
 
-    def __del__(self):        
+    def __del__(self):
         #drop table
         if self.use_runtime_db:
             self.db.rtq_cleanup(self.table_name)
 
-    def insert(self, item):
-               
-        if self.use_runtime_db:
-            self.idsqueue.append(item.id)
-            self.db.rtq_insert_set(self.table_name, item.id, item.to_string(pretty=False))
-        else:
-            self.objqueue.append(item) 
-        
+    def insert(self, item):    
+        will_add_new_item = True
+        # in case of unique queue, make sure to add to the database only when new item is added
+        if self.unique_queue and len(self.idsqueue) > self.idsqueue.append(item):
+            will_add_new_item = False
+
+        if will_add_new_item:
+            if self.use_runtime_db:
+                self.idsqueue.append(item.id)
+                self.db.rtq_insert_set(self.table_name, item.id, item.to_string(pretty=False))
+            else:
+                self.objqueue.append(item)
+            
         return True
 
     def pop(self):
-        item = None
+        item = None        
         if self.use_runtime_db:
-            objid = self.idsqueue.pop(0)
+            objid = None
+            if self.unique_queue:
+                objid = self.idsqueue[0]
+                self.idsqueue.remove(objid)
+            else:
+                objid = self.idsqueue.popleft()
             id, body = self.db.rtq_get_set(self.table_name, objid)
             item = Set.Set(body)
             item.id = id
 
+        elif self.unique_queue:
+            item = self.objqueue[0]
+            self.objqueue.remove(item)
         else:
-            item = self.objqueue.pop(0)
+            item = self.objqueue.popleft()
 
         return item
 

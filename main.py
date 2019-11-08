@@ -6,6 +6,7 @@ from Clause import *
 from PatternSolver import *
 from InputReader import InputReader
 import configs
+import traceback
 
 # todo: 
 # - Handle if input has [x, -x]. What I did now is to normalize the clause once it get read. However, this will not enable us to 
@@ -56,6 +57,7 @@ def Main(args):
 
     except Exception as e:
         logger.critical("Error - {0}".format(str(e)))
+        logger.critical("Error - {0}".format(traceback.format_exc()))
         
 
 
