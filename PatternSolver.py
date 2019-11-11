@@ -13,18 +13,17 @@ from Set import Set
 
 # TODO:
 #
-# 1- The check if a node exist in the global DB, I need to implement it with another option to issue a query to gdb to check existice of the node,
+# 1- About the check if a node exist in the global DB, I need to implement it with another option to issue a query to gdb to check existice of the node,
 # instead of loading all the nodes from the gdb and occupy lots of memory.
-#
-# We will have two DB tables:
-# * GlobalSetsTable: Which will contain all the sets we've encoutered. Each row has:
-#       - set_hash
-#       - set_body (string repr. of the set)
-#       - child 1 id
-#       - child 2 id
-#       - mapping (after lo cond.)
-#       - num of clauses
-#       - num of vars
+# 
+# 2- Solve the issue when a node is found in gdb, then determine the accurate unique_count and redundant count for parent nodes. 
+# The problem is not trivial here, as the parent node might be pointing to another node down the path that is also found in the gdb. The second found node
+# could be a child of the first found node, and thus the first found node's unique cound already includes the unique counts of the second found node.
+# we need to be careful how to solve this issue to get the non overlapping unique count. A naive approche is to load all the tree from the gdb and walk on it exactly as 
+# we do in construct_graph_stats(). It's slow but easy and guaranteed solution. I think the solution of this problem relates to graph reachability problem in algorithms
+# where we need to determine the count of all reachable nodes for each node of the graph, I couldn't find any solution faster than O|V*E|. That's how I implemented 
+# construct_graph_stats() here. But I'm hoping to find an optimized solution specific for our scenario that gives a faster solution.
+# So far, this issue of integrating the unique count of a saved gdb node is not properly implemented.
 #
 # * RunTimeQueue_{random int}: Which will contain the queue of nodes to be processed. This is an ephermal table that will be dropped at the end of execution. Each row has:
 #       - set_id   // PRIMARY, a number represent the order of the set to maintain breadth first evaluation
@@ -98,12 +97,12 @@ class PatternSolver:
         if self.args.use_global_db:
             # load solved hashes
             solve_hashes = self.db_adaptor.gs_load_solved_sets(self.global_table_name, num_clauses)
-            self.solved_sets = {el:1 for el in solve_hashes}
+            self.solved_sets = {el[0]:[el[1], el[2]] for el in solve_hashes}
             # load unsolved hashes
             unsolve_hashes = self.db_adaptor.gs_load_unsolved_sets(self.global_table_name, num_clauses)
             self.seen_sets = {el:1 for el in unsolve_hashes}
             # combine solved and unsolved in seen_sets map
-            self.seen_sets.update(self.solved_sets)
+            self.seen_sets.update({el:1 for el in self.solved_sets.keys()})
             
     def get_children_from_gdb(self, set_hash):
         result = ()
@@ -180,7 +179,7 @@ class PatternSolver:
             return
         else:
             node_descendants[node_id] = 1
-            
+                    
         for child_id in nodes_children[node_id]:
             self.get_node_subgraph_stats(child_id, nodes_children, node_descendants, node_redundants)
 
@@ -352,8 +351,15 @@ class PatternSolver:
                 global_save_status = self.save_parent_children(cnf_set, s1.get_hash(), s2.get_hash())
                 if global_save_status == SUCCESS:
                     for child in (s1, s2):
-                        if child.status == NODE_UNIQUE and not self.is_set_solved(child.get_hash()):
-                            squeue.insert(child)
+                        child_hash = child.get_hash()
+                        if child.status == NODE_UNIQUE:
+                            if not self.is_set_solved(child_hash):
+                                squeue.insert(child)
+                            else:
+                                # node is found solved in gdb
+                                nodes_children[child.id] = []
+                                self.nodes_stats[child.id] = [self.solved_sets[child_hash][NODE_UNIQUE], self.solved_sets[child_hash][NODE_UNIQUE]]
+                                
                 elif global_save_status == DB_UNIQUE_VIOLATION:
                     logger.info("Node #{} is already found 'during execution' in global DB.".format(cnf_set.id))
                 

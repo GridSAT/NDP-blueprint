@@ -140,10 +140,10 @@ class DbAdapter:
     def gs_load_solved_sets(self, table_name, num_clauses):
         result = []
         try:
-            self.cur.execute(sql.SQL("SELECT hash FROM {0} WHERE num_of_clauses <= %s AND unique_nodes > 0").format(sql.Identifier(table_name)), (num_clauses, ))
+            self.cur.execute(sql.SQL("SELECT hash, unique_nodes, redundant_nodes FROM {0} WHERE num_of_clauses <= %s AND unique_nodes > 0").format(sql.Identifier(table_name)), (num_clauses, ))
             rows = self.cur.fetchall()
             for row in rows:
-                result.append(bytes(row[0]))
+                result.append([bytes(row[0]), row[1], row[2]])
 
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
