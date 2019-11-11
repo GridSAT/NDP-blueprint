@@ -3,6 +3,7 @@ import sys
 import time, math
 import psutil
 import binascii
+from collections import defaultdict
 from graphviz import Digraph
 from queue import Queue
 from configs import *
@@ -11,6 +12,10 @@ import SuperQueue
 from Set import Set
 
 # TODO:
+#
+# 1- The check if a node exist in the global DB, I need to implement it with another option to issue a query to gdb to check existice of the node,
+# instead of loading all the nodes from the gdb and occupy lots of memory.
+#
 # We will have two DB tables:
 # * GlobalSetsTable: Which will contain all the sets we've encoutered. Each row has:
 #       - set_hash
@@ -57,8 +62,8 @@ class PatternSolver:
     # the dictionary that holds processed set
     # currently each key is the string represenation of the set, i.e. set.to_string()
     seen_sets = {}          # stores all nodes in global db
-    solved_sets = {}        # stores solved sets pulled from global db
-    graph = {}              # stores the nodes as we solve them
+    solved_sets = {}                        # stores solved sets pulled from global db
+    graph = {}                              # stores the nodes as we solve them
     args = None
     db_adaptor = None
     problem_id = None
@@ -69,6 +74,9 @@ class PatternSolver:
         self.seen_sets.clear()
         self.args = args
         self.leaves = []
+        # populate nodes_stats with defaults
+        self.nodes_stats = defaultdict(lambda: [0,0])
+
         if problem_id:
             self.problem_id = problem_id
 
@@ -164,51 +172,50 @@ class PatternSolver:
                                          num_of_vars)  
                                          
         return SUCCESS
-        
-    # Construct graph stats. So each node in the graph has information about it's subgraph unique and redundant nodes count
-    def construct_graph_stats(self, nodes_parents, redundant_ids):
-        nodes_stats = []        # each element correspond to array [unique count, redundant count, has floating redundant]
 
-        # create queue to traverse the nodes
-        squeue = SuperQueue.SuperQueue(unique_queue=True, use_runtime_db=False)
-        
-        # populate nodes_stats with defaults
-        for _ in range(0, len(self.graph)+1):
-            nodes_stats.append([1,0,False])
+    def get_node_subgraph_stats(self, node_id, nodes_children, node_descendants, node_redundants):
 
-        # populate default stats for each node
-        for leaf_id in self.leaves:
-            squeue.insert(leaf_id)
-        
-        while not squeue.is_empty():
-            node_id = squeue.pop()
-
-            # If the node itself is redundant, that doesn't mean it has any redundant nodes in it's subgraph, 
-            # however, mark it as has floated redudant
-            if redundant_ids.get(node_id, False):
-                nodes_stats[node_id][HAS_FLOATED_REDUNDANT] = True
+        if node_descendants.get(node_id, False):
+            node_redundants[node_id] += 1
+            return
+        else:
+            node_descendants[node_id] = 1
             
-            # set data for parents
-            for parent_id in nodes_parents[node_id]:
-                nodes_stats[parent_id][UNIQUE_COUNT]            += nodes_stats[node_id][UNIQUE_COUNT]
-                nodes_stats[parent_id][REDUNDANT_COUNT]         += nodes_stats[node_id][REDUNDANT_COUNT]
+        for child_id in nodes_children[node_id]:
+            self.get_node_subgraph_stats(child_id, nodes_children, node_descendants, node_redundants)
 
-                # if a nodes's x parent is a parent to another nodex x parent
-                redundant_parents = list(set(nodes_parents[parent_id]) & set(nodes_parents[node_id]))
-                for redundant_parent in redundant_parents:
-                    nodes_stats[redundant_parent][UNIQUE_COUNT] -= 1
-                    nodes_stats[redundant_parent][REDUNDANT_COUNT] += 1
 
-                # for diamond shape nodes
-                if nodes_stats[parent_id][HAS_FLOATED_REDUNDANT] & nodes_stats[node_id][HAS_FLOATED_REDUNDANT]:
-                    nodes_stats[parent_id][REDUNDANT_COUNT] += 1
-                    nodes_stats[parent_id][HAS_FLOATED_REDUNDANT] = False
-                else:
-                    nodes_stats[parent_id][HAS_FLOATED_REDUNDANT] |= nodes_stats[node_id][HAS_FLOATED_REDUNDANT]
+    def construct_graph_stats(self, root_id, nodes_children):
+        root_node_redundants = {}
 
-                squeue.insert(parent_id)
+        for node_id in range(1, len(self.graph)+1):
+            node_descendants = {}
+            node_redundants = defaultdict(int)
+            self.get_node_subgraph_stats(node_id, nodes_children, node_descendants, node_redundants)
+            self.nodes_stats[node_id][UNIQUE_COUNT]      = len(node_descendants)
+            self.nodes_stats[node_id][REDUNDANT_COUNT]   = len(node_redundants)
 
-        return nodes_stats
+            if node_id == 1:
+                root_node_redundants = node_redundants
+
+        return root_node_redundants
+    
+    def save_in_global_db(self, root_redundants):
+        # construct a dict of node_ids => hash
+        id_to_hash = {}
+        for k,v in self.graph.items():
+            id_to_hash[v] = k
+
+        for node_id in range(1, len(self.nodes_stats)):
+            unique_nodes = self.nodes_stats[node_id][UNIQUE_COUNT]
+            redundant_nodes = self.nodes_stats[node_id][REDUNDANT_COUNT]
+            hash = id_to_hash[node_id]
+            self.db_adaptor.gs_update_count(self.global_table_name, unique_nodes, redundant_nodes, hash)            
+            
+        # saving redundants hits
+        for red_id, redundant_hits  in root_redundants.items():
+            hash = id_to_hash[red_id]
+            self.db_adaptor.gs_update_redundant_hits(self.global_table_name, redundant_hits, hash)
 
 
     def process_child_node(self, child_set, dot):
@@ -231,7 +238,7 @@ class PatternSolver:
             # check if we have processed the set before
             if self.is_in_graph(setafterhash):
                 child_set.id = self.graph[setafterhash]
-                self.update_graph_node_count(setafterhash)
+                #self.update_graph_node_count(setafterhash)
                 node_status = NODE_REDUNDANT
             
             else:                
@@ -249,7 +256,7 @@ class PatternSolver:
         # vars to calculate graph size at the end
         redundant_ids = {}  # ids of redundant nodes
         nodes_parents = {}  # for every id, there's an array of parents
-
+        nodes_children = {} # children ids for every node
         
         # use global sets table
         if self.args.use_global_db:
@@ -279,6 +286,7 @@ class PatternSolver:
                 squeue.insert(root_set)
             except (Exception, error) as error:
                 logger.error("DB Error: " + str(error))
+                logger.critical("Error - {0}".format(traceback.format_exc()))
                 return False
                 
             if self.args.output_graph_file:
@@ -287,6 +295,7 @@ class PatternSolver:
 
             while not squeue.is_empty():
                 cnf_set = squeue.pop()
+                nodes_children[cnf_set.id] = []
                 logger.debug("Set #{0}".format(cnf_set.id))
 
                 ## Evaluate
@@ -314,13 +323,17 @@ class PatternSolver:
                         self.save_unique_node(child_hash, child.id)
                         # add parent
                         nodes_parents[child.id] = [cnf_set.id]
+                        nodes_children[cnf_set.id].append(child.id)
+
                         if self.args.output_graph_file:
                             dot.node(str(child.id), str(child.id) + "\\n" + child_str_before + "\\n" + child_str_after, color='black')
 
                     elif child.status == NODE_REDUNDANT:
                         redundants += 1
-                        redundant_ids[self.graph[child_hash]] = 1
-                        nodes_parents[self.graph[child_hash]].append(cnf_set.id)
+                        redundant_ids[child.id] = 1
+                        nodes_parents[child.id].append(cnf_set.id)
+                        nodes_children[cnf_set.id].append(child.id)
+
                         if self.args.output_graph_file:
                             dot.node(str(child.id), color='red')
 
@@ -352,20 +365,34 @@ class PatternSolver:
                     print("Nodes so far: {:,} uniques and {:,} redundants...".format(uniques, redundants), end='\r')
 
             
-            # update the database with the graph size under each node
-            #update_subgraph_sizes(id_leaves, id_pid, id_size)
+            ### Solving the set is done, let's get the number of unique and redundant nodes
+            if self.args.verbos:
+                print()
+                print("=== Set has been solved successfully.")
+                print("=== Getting statistics of all subgraphs...")
+
+            root_redundants = self.construct_graph_stats(root_set.id, nodes_children)
+    
+            if self.args.verbos:
+                print("=== Done getting the statistics.")
+            
+            if self.args.use_global_db:
+                if self.args.verbos:
+                    print("=== Saving the final result in the global DB...")
+
+                self.save_in_global_db(root_redundants)
+
+                redundants = len(redundant_ids)
 
         else:
             if self.args.verbos:
                 print("Input set is found in the global DB")
+                print("Pulling Set's data from the DB...")
+                set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
+                uniques = set_data["unique_nodes"]
+                redundants = set_data["redundant_nodes"]
 
-        # Solving the set is done, let's get the number of unique and redundant nodes
-        nodes_stats = self.construct_graph_stats(nodes_parents, redundant_ids)
-        print()
-        for node_id in range(1, len(self.graph)+1):
-            print(f"{node_id} - {nodes_stats[node_id]}")
-
-
+            
         #print("\n")
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
@@ -374,7 +401,6 @@ class PatternSolver:
         stats += '\\n' + "Solution mode: {0}".format(self.args.mode.upper())
         stats += '\\n' + "Number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Number of redundant subtrees: {0}".format(redundants)
-        stats += '\\n' + "Number of leaves nodes: {0}".format(leaves)
         #stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id)))-1))
         stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 

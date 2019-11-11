@@ -3,6 +3,7 @@ import psycopg2
 from configs import *
 import hashlib
 from psycopg2 import sql
+import psycopg2.extras
 
 # helpful query: select id, cid1 is null as cid1_is_null, cid2 is null as cid2_is_null from cnf_1560847944_097688;
 
@@ -16,7 +17,7 @@ class DbAdapter:
         
         try:
             # connect to the PostgreSQL server
-            self.conn = psycopg2.connect(self.conn_string)
+            self.conn = psycopg2.connect(self.conn_string, cursor_factory=psycopg2.extras.DictCursor)
             self.cur = self.conn.cursor()
             
         except (Exception, psycopg2.DatabaseError) as error:
@@ -49,19 +50,22 @@ class DbAdapter:
                 num_of_vars INTEGER DEFAULT 0,
                 unique_nodes INTEGER DEFAULT 0,
                 redundant_nodes INTEGER DEFAULT 0,
-                is_redundant BOOLEAN DEFAULT FALSE,
+                redundant_hits INTEGER DEFAULT 0,
                 date_created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 UNIQUE(hash)
             )
             """.format(table_name)
+        # redundant_nodes field counts how many redundant nodes in this set's subgraph
+        # redundant_hits field counts how many times this particular set was a redundant set
+        
         # the UNIQUE constraint will prevent any other process from writing the same data, the exception should be handled then
-
         # be aware that creating an index on table with exaustive inserts can slow it down. Check the speed without the index and compare.
         index_commands = [
                 "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name),
                 "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name),
                 "CREATE INDEX IF NOT EXISTS date_created ON {0} (date_created)".format(table_name),
-                "CREATE INDEX IF NOT EXISTS unique_nodes ON {0} (unique_nodes)".format(table_name)
+                "CREATE INDEX IF NOT EXISTS unique_nodes ON {0} (unique_nodes)".format(table_name),
+                "CREATE INDEX IF NOT EXISTS redundant_hits ON {0} (redundant_hits)".format(table_name)
             ]
         
         try:
@@ -106,14 +110,28 @@ class DbAdapter:
         return result
 
 
-    def gs_update_count(self, table_name, value):
+    def gs_update_count(self, table_name, unique_nodes, redundant_nodes, hash):
         result = False
         try:
-            self.cur.execute(sql.SQL("UPDATE {0} SET count = count + 1 WHERE hash = %s").format(sql.Identifier(table_name)), (value, ))
+            self.cur.execute(sql.SQL("UPDATE {0} SET unique_nodes = %s, redundant_nodes = %s WHERE hash = %s").format(sql.Identifier(table_name)), (unique_nodes, redundant_nodes, hash))
             # get result
             result = bool(self.cur.rowcount)
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
+            logger.critical("Error - {0}".format(traceback.format_exc()))
+            result = False
+
+        return result
+
+    def gs_update_redundant_hits(self, table_name, redundant_hits, hash):
+        result = False
+        try:
+            self.cur.execute(sql.SQL("UPDATE {0} SET redundant_hits = redundant_hits + %s WHERE hash = %s").format(sql.Identifier(table_name)), (redundant_hits, hash))
+            # get result
+            result = bool(self.cur.rowcount)
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
+            logger.critical("Error - {0}".format(traceback.format_exc()))
             result = False
 
         return result
@@ -141,6 +159,16 @@ class DbAdapter:
             for row in rows:
                 result.append(bytes(row[0]))
 
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
+
+        return result
+
+    def gs_get_set_data(self, table_name, set_hash):
+        result = {}
+        try:
+            self.cur.execute(sql.SQL("SELECT * FROM {0} WHERE hash = %s").format(sql.Identifier(table_name)), (set_hash, ))
+            result = self.cur.fetchone()
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
 
