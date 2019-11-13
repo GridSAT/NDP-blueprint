@@ -10,6 +10,8 @@ class Set:
         self.clauses = []
         self.value = None
         self.id = 0
+        self.computed_hash = None
+
         # create a Set object from input string
         if str_input:
             seq = str_input
@@ -240,8 +242,10 @@ class Set:
         # sha1 hash
         return hashlib.sha1(bytes(input_str, "ascii")).digest() 
         
-    def get_hash(self):
-        return Set.calculate_hash(self.to_string(pretty=False))
+    def get_hash(self, force_recalculate=False):
+        if self.computed_hash == None or force_recalculate:
+            self.computed_hash = Set.calculate_hash(self.to_string(pretty=False))
+        return self.computed_hash
 
     def print_set(self):
         print(self.to_string())

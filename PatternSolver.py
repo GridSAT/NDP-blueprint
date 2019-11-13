@@ -74,7 +74,7 @@ class PatternSolver:
         self.args = args
         self.leaves = []
         # populate nodes_stats with defaults
-        self.nodes_stats = defaultdict(lambda: [0,0])
+        self.nodes_stats = defaultdict(lambda: [0,0,0])
 
         if problem_id:
             self.problem_id = problem_id
@@ -193,6 +193,7 @@ class PatternSolver:
             self.get_node_subgraph_stats(node_id, nodes_children, node_descendants, node_redundants)
             self.nodes_stats[node_id][UNIQUE_COUNT]      = len(node_descendants)
             self.nodes_stats[node_id][REDUNDANT_COUNT]   = len(node_redundants)
+            self.nodes_stats[node_id][REDUNDANT_HITS]   = sum(node_redundants.values())
 
             if node_id == 1:
                 root_node_redundants = node_redundants
@@ -205,16 +206,17 @@ class PatternSolver:
         for k,v in self.graph.items():
             id_to_hash[v] = k
 
-        for node_id in range(1, len(self.nodes_stats)):
-            unique_nodes = self.nodes_stats[node_id][UNIQUE_COUNT]
+        for node_id in range(1, len(self.nodes_stats)+1):
+            unique_nodes    = self.nodes_stats[node_id][UNIQUE_COUNT]
             redundant_nodes = self.nodes_stats[node_id][REDUNDANT_COUNT]
+            redundant_hits  = self.nodes_stats[node_id][REDUNDANT_HITS]
             hash = id_to_hash[node_id]
-            self.db_adaptor.gs_update_count(self.global_table_name, unique_nodes, redundant_nodes, hash)            
+            self.db_adaptor.gs_update_count(self.global_table_name, unique_nodes, redundant_nodes, redundant_hits, hash)            
             
-        # saving redundants hits
-        for red_id, redundant_hits  in root_redundants.items():
+        # saving redundants hits for redundant nodes
+        for red_id, redundant_times  in root_redundants.items():
             hash = id_to_hash[red_id]
-            self.db_adaptor.gs_update_redundant_hits(self.global_table_name, redundant_hits, hash)
+            self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, hash)
 
 
     def process_child_node(self, child_set, dot):
@@ -233,7 +235,7 @@ class PatternSolver:
                 logger.debug("Set #{} - convert to {} mode".format(len(self.graph), self.args.mode))
                 child_set.to_lo_condition(self.args.mode)
 
-            setafterhash = child_set.get_hash()
+            setafterhash = child_set.get_hash(force_recalculate=False)
             # check if we have processed the set before
             if self.is_in_graph(setafterhash):
                 child_set.id = self.graph[setafterhash]
@@ -250,7 +252,7 @@ class PatternSolver:
     def process_set(self, root_set):
         
         start_time = time.time()
-        uniques = redundants = leaves = 0
+        uniques = redundant_hits = leaves = 0
 
         # vars to calculate graph size at the end
         redundant_ids = {}  # ids of redundant nodes
@@ -273,7 +275,7 @@ class PatternSolver:
         logger.debug("Set #{} - to root set to {} mode".format(root_set.id, self.args.mode))
         setbefore = root_set.to_string()
         root_set.to_lo_condition(self.args.mode)
-        setafterhash = root_set.get_hash()
+        setafterhash = root_set.get_hash(force_recalculate=True)
         
         # check if we have processed the CNF before
         if not self.is_set_solved(setafterhash):
@@ -328,7 +330,7 @@ class PatternSolver:
                             dot.node(str(child.id), str(child.id) + "\\n" + child_str_before + "\\n" + child_str_after, color='black')
 
                     elif child.status == NODE_REDUNDANT:
-                        redundants += 1
+                        redundant_hits += 1
                         redundant_ids[child.id] = 1
                         nodes_parents[child.id].append(cnf_set.id)
                         nodes_children[cnf_set.id].append(child.id)
@@ -368,7 +370,7 @@ class PatternSolver:
                     self.leaves.append(cnf_set.id)
 
                 if self.args.verbos:
-                    print("Nodes so far: {:,} uniques and {:,} redundants...".format(uniques, redundants), end='\r')
+                    print("Nodes so far: {:,} uniques and {:,} redundant_hits...".format(uniques, redundant_hits), end='\r')
 
             
             ### Solving the set is done, let's get the number of unique and redundant nodes
@@ -378,7 +380,8 @@ class PatternSolver:
                 print("=== Getting statistics of all subgraphs...")
 
             root_redundants = self.construct_graph_stats(root_set.id, nodes_children)
-    
+            redundants = len(redundant_ids)
+
             if self.args.verbos:
                 print("=== Done getting the statistics.")
             
@@ -387,9 +390,7 @@ class PatternSolver:
                     print("=== Saving the final result in the global DB...")
 
                 self.save_in_global_db(root_redundants)
-
-                redundants = len(redundant_ids)
-
+            
         else:
             if self.args.verbos:
                 print("Input set is found in the global DB")
@@ -397,6 +398,7 @@ class PatternSolver:
                 set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
                 uniques = set_data["unique_nodes"]
                 redundants = set_data["redundant_nodes"]
+                redundant_hits = set_data["redundant_hits"]
 
             
         #print("\n")
@@ -407,6 +409,7 @@ class PatternSolver:
         stats += '\\n' + "Solution mode: {0}".format(self.args.mode.upper())
         stats += '\\n' + "Number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Number of redundant subtrees: {0}".format(redundants)
+        stats += '\\n' + "Number of redundant hits: {0}".format(redundant_hits)
         #stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id)))-1))
         stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 
