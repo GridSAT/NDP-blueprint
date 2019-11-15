@@ -191,8 +191,8 @@ class PatternSolver:
             node_descendants = {}
             node_redundants = defaultdict(int)
             self.get_node_subgraph_stats(node_id, nodes_children, node_descendants, node_redundants)
-            self.nodes_stats[node_id][UNIQUE_COUNT]      = len(node_descendants)
-            self.nodes_stats[node_id][REDUNDANT_COUNT]   = len(node_redundants)
+            self.nodes_stats[node_id][UNIQUE_COUNT]     = len(node_descendants)
+            self.nodes_stats[node_id][REDUNDANT_COUNT]  = len(node_redundants)
             self.nodes_stats[node_id][REDUNDANT_HITS]   = sum(node_redundants.values())
 
             if node_id == 1:
@@ -252,7 +252,7 @@ class PatternSolver:
     def process_set(self, root_set):
         
         start_time = time.time()
-        uniques = redundant_hits = leaves = 0
+        uniques = redundant_hits = leaves = nodes_found_in_gdb = 0
 
         # vars to calculate graph size at the end
         redundant_ids = {}  # ids of redundant nodes
@@ -304,7 +304,7 @@ class PatternSolver:
                 ## if it's solved in gdb, it wouldn't be here in this loop at the first place.
                 s1 = s2 = None
                 ## although this step is working fine, but it slower down the program, so there's no need.
-                if self.args.use_global_db and self.is_set_in_gdb(cnf_set.get_hash()) and not self.is_set_solved(cnf_set.get_hash()):
+                if self.args.use_global_db and self.is_set_in_gdb(cnf_set.get_hash()):
                     (s1, s2) = self.get_children_from_gdb(cnf_set.get_hash())
                 
                 if s1 == None or s2 == None:
@@ -355,13 +355,17 @@ class PatternSolver:
                     for child in (s1, s2):
                         child_hash = child.get_hash()
                         if child.status == NODE_UNIQUE:
-                            if not self.is_set_solved(child_hash):
-                                squeue.insert(child)
-                            else:
-                                # node is found solved in gdb
-                                nodes_children[child.id] = []
-                                self.nodes_stats[child.id] = [self.solved_sets[child_hash][NODE_UNIQUE], self.solved_sets[child_hash][NODE_UNIQUE]]
-                                
+                            # node is found solved in gdb
+                            if self.is_set_solved(child_hash):
+                                nodes_found_in_gdb += 1
+                                node_data = self.db_adaptor.gs_get_set_data(self.global_table_name, child_hash)
+                                id = child.id
+                                child = Set(node_data['body'])
+                                child.id = id
+                                child.computed_hash = child_hash
+
+                            squeue.insert(child)
+
                 elif global_save_status == DB_UNIQUE_VIOLATION:
                     logger.info("Node #{} is already found 'during execution' in global DB.".format(cnf_set.id))
                 
@@ -393,6 +397,7 @@ class PatternSolver:
             
         else:
             if self.args.verbos:
+                nodes_found_in_gdb = 1
                 print("Input set is found in the global DB")
                 print("Pulling Set's data from the DB...")
                 set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
@@ -410,6 +415,7 @@ class PatternSolver:
         stats += '\\n' + "Number of unique nodes: {0}".format(uniques)
         stats += '\\n' + "Number of redundant subtrees: {0}".format(redundants)
         stats += '\\n' + "Number of redundant hits: {0}".format(redundant_hits)
+        stats += '\\n' + "Number of nodes found in gdb: {0}".format(nodes_found_in_gdb)
         #stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id)))-1))
         stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 
