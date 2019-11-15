@@ -5,11 +5,11 @@ from Clause import *
 class Set:
     
 
-    def __init__(self, str_input=None):
+    def __init__(self, str_input=None, id=0):
 
         self.clauses = []
         self.value = None
-        self.id = 0
+        self.id = id
         self.computed_hash = None
 
         # create a Set object from input string

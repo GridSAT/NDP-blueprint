@@ -359,9 +359,7 @@ class PatternSolver:
                             if self.is_set_solved(child_hash):
                                 nodes_found_in_gdb += 1
                                 node_data = self.db_adaptor.gs_get_set_data(self.global_table_name, child_hash)
-                                id = child.id
-                                child = Set(node_data['body'])
-                                child.id = id
+                                child = Set(node_data['body'], id=child.id)
                                 child.computed_hash = child_hash
 
                             squeue.insert(child)
