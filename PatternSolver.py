@@ -223,7 +223,7 @@ class PatternSolver:
     def process_set(self, root_set):
         
         start_time = time.time()
-        uniques = redundant_hits = leaves = nodes_found_in_gdb = 0
+        uniques = redundant_hits = leaves = redundants = nodes_found_in_gdb = 0
 
         # vars to calculate graph size at the end
         redundant_ids = {}  # ids of redundant nodes
@@ -377,14 +377,14 @@ class PatternSolver:
                 self.save_in_global_db(root_redundants)
             
         else:
-            if self.args.verbos:
-                nodes_found_in_gdb = 1
+            if self.args.verbos:                
                 print("Input set is found in the global DB")
                 print("Pulling Set's data from the DB...")
-                set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
-                uniques = set_data["unique_nodes"]
-                redundants = set_data["redundant_nodes"]
-                redundant_hits = set_data["redundant_hits"]
+            nodes_found_in_gdb = 1
+            set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
+            uniques = set_data["unique_nodes"]
+            redundants = set_data["redundant_nodes"]
+            redundant_hits = set_data["redundant_hits"]
 
             
         #print("\n")
