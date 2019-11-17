@@ -4,6 +4,7 @@ from DbAdaptor import DbAdapter
 from configs import PROBLEM_ID
 from collections import deque
 from collections import OrderedDict
+from ordered_set import OrderedSet
 
 ''' Queue that uses both memory and database to hold big number of object efficiently '''
 # will save ids in memory, while the objects will be saved in DB
