@@ -99,8 +99,7 @@ class DbAdapter:
     
         return success
 
-    def gs_does_exist(self, table_name, value):
-        
+    def gs_does_hash_exist(self, table_name, value):        
         result = False
         try:
             self.cur.execute(sql.SQL("SELECT 1 FROM {0} WHERE hash = %s LIMIT 1").format(sql.Identifier(table_name)), (value, ))
@@ -111,6 +110,17 @@ class DbAdapter:
 
         return result
 
+    # check if a set is solved.
+    # A solved set should have unique_nodes greater than zero
+    def gs_is_hash_solved(self, table_name, value):        
+        result = False
+        try:
+            self.cur.execute(sql.SQL("SELECT 1 FROM {0} WHERE hash = %s AND unique_nodes > 0").format(sql.Identifier(table_name)), (value, ))
+            result = bool(self.cur.rowcount)
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
+            result = False
+        return result
 
     def gs_update_count(self, table_name, unique_nodes, redundant_nodes, redundant_hits, hash):
         result = False
@@ -167,13 +177,16 @@ class DbAdapter:
         return result
 
     def gs_get_set_data(self, table_name, set_hash):
-        result = {}
+        result = None
         try:
             self.cur.execute(sql.SQL("SELECT * FROM {0} WHERE hash = %s").format(sql.Identifier(table_name)), (set_hash, ))
-            result = self.cur.fetchone()
+            result = self.cur.fetchone()            
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
 
+        # if result is None, then the hash is not found.
+        # Usually this happens when a process was terminated unexpectedly so a set with each of its children are saved in db
+        # while the children don't have a separate entry in the db
         return result
 
     def gs_get_children(self, table_name, set_hash):
@@ -181,24 +194,13 @@ class DbAdapter:
         try:
             self.cur.execute(sql.SQL("SELECT cid1, cid2 FROM {0} WHERE hash = %s").format(sql.Identifier(table_name)), (set_hash, ))
             row = self.cur.fetchone()
-            result = (bytes(row[0]), bytes(row[1]))
+            result = (bytes(row['cid1']), bytes(row['cid2']))
 
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
 
         return result
-    
-    def gs_get_body(self, table_name, set_hash):
-        result = None
-        try:
-            self.cur.execute(sql.SQL("SELECT body FROM {0} WHERE hash = %s").format(sql.Identifier(table_name)), (set_hash, ))
-            row = self.cur.fetchone()
-            result = row[0]
 
-        except (Exception, psycopg2.DatabaseError) as error:
-            logger.error("DB Error: " + str(error))
-
-        return result
 
     ### RunTimeQueue methods ###
 

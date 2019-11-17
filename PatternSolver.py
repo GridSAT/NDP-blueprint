@@ -35,6 +35,7 @@ from Set import Set
 # - new nodes will also be added to another structure in memory called to be purged later into the database when it reach a reasonable big size 
 # to batch insert operations in GlobalSetsTable
 
+# DbAdaptor constructor should set the self.global_table_name rather than sending it in every method's param
 
 TRUE_SET_HASH = Set.calculate_hash('T')
 FALSE_SET_HASH = Set.calculate_hash('F')
@@ -94,7 +95,7 @@ class PatternSolver:
         fg.close()
 
     def load_set_records(self, num_clauses):
-        if self.args.use_global_db:
+        if self.args.use_global_db and not self.args.gdb_no_mem:
             # load solved hashes
             solve_hashes = self.db_adaptor.gs_load_solved_sets(self.global_table_name, num_clauses)
             self.solved_sets = {el[0]:[el[1], el[2]] for el in solve_hashes}
@@ -118,11 +119,12 @@ class PatternSolver:
                 child.value = False
             else:
                 # get the body from the db
-                set_body = self.db_adaptor.gs_get_body(self.global_table_name, child_hash)
-                if set_body == None:
+                set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, child_hash)                
+                if set_data == None:
                     return (None, None)
 
-                child = Set(set_body)
+                child = Set(set_data['body'])
+                child.computed_hash = child_hash
             
             result = result + (child, )
 
@@ -132,15 +134,14 @@ class PatternSolver:
         return self.graph.get(set_hash, False)
 
     def is_set_in_gdb(self, set_hash):
+        if self.args.gdb_no_mem:
+            return self.db_adaptor.gs_does_hash_exist(self.global_table_name, set_hash)
         return self.seen_sets.get(set_hash, False)
 
     def is_set_solved(self, set_hash):
+        if self.args.gdb_no_mem:
+            return self.db_adaptor.gs_is_hash_solved(self.global_table_name, set_hash)
         return self.solved_sets.get(set_hash, False)
-
-    def update_graph_node_count(self, set_hash):
-        # self.graph[set_hash].seen_count += 1
-        # self.graph[set_hash].status = NODE_REDUNDANT
-        self.seen_sets[set_hash] += 1 
 
     def save_unique_node(self, set_hash, set_id):
         # self.graph[set_hash] = Node()
@@ -219,36 +220,6 @@ class PatternSolver:
             self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, hash)
 
 
-    def process_child_node(self, child_set, dot):
-        node_status = None
-
-        # check if the set is already evaluated to boolean value            
-        if child_set.value != None:            
-            node_status = NODE_EVALUATED
-
-        else:
-            # if user input mode is MODE_LO, it means only root is LO and the rest are LOU, and since this is a child node, then pass LOU argument
-            if self.args.mode == MODE_LO:                
-                logger.debug("Set #{} - convert to {} mode".format(len(self.graph), MODE_LOU))
-                child_set.to_lo_condition(MODE_LOU)
-            else:
-                logger.debug("Set #{} - convert to {} mode".format(len(self.graph), self.args.mode))
-                child_set.to_lo_condition(self.args.mode)
-
-            setafterhash = child_set.get_hash(force_recalculate=False)
-            # check if we have processed the set before
-            if self.is_in_graph(setafterhash):
-                child_set.id = self.graph[setafterhash]
-                #self.update_graph_node_count(setafterhash)
-                node_status = NODE_REDUNDANT
-            
-            else:                
-                # when the set reaches l.o. condition, we update the global sets record
-                node_status = NODE_UNIQUE
-
-        return node_status
-
-
     def process_set(self, root_set):
         
         start_time = time.time()
@@ -256,7 +227,6 @@ class PatternSolver:
 
         # vars to calculate graph size at the end
         redundant_ids = {}  # ids of redundant nodes
-        nodes_parents = {}  # for every id, there's an array of parents
         nodes_children = {} # children ids for every node
         
         # use global sets table
@@ -277,10 +247,14 @@ class PatternSolver:
         root_set.to_lo_condition(self.args.mode)
         setafterhash = root_set.get_hash(force_recalculate=True)
         
+        input_mode = self.args.mode
+        # if user input mode is MODE_LO, it means only root is LO and the rest are LOU, and since this is a child node, then pass LOU argument
+        if self.args.mode == MODE_LO:
+            input_mode = MODE_LOU
+
         # check if we have processed the CNF before
         if not self.is_set_solved(setafterhash):
             self.save_unique_node(setafterhash, root_set.id)
-            nodes_parents[root_set.id] = []
 
             try:
                 squeue = SuperQueue.SuperQueue(use_runtime_db=self.use_runtime_db, problem_id=self.problem_id)        
@@ -304,26 +278,44 @@ class PatternSolver:
                 ## if it's solved in gdb, it wouldn't be here in this loop at the first place.
                 s1 = s2 = None
                 ## although this step is working fine, but it slower down the program, so there's no need.
+                children_pulled_from_gdb = False
                 if self.args.use_global_db and self.is_set_in_gdb(cnf_set.get_hash()):
                     (s1, s2) = self.get_children_from_gdb(cnf_set.get_hash())
+                    if s1 != None and s2 != None:
+                        nodes_found_in_gdb += 1
+                        children_pulled_from_gdb = True
                 
-                if s1 == None or s2 == None:
+                if not children_pulled_from_gdb:
                     (s1, s2) = cnf_set.evaluate()
                 
                 for child in (s1, s2):
                     child_str_before = child.to_string()
                     
-                    child.status = self.process_child_node(child, dot)
+                    # check if the set is already evaluated to boolean value            
+                    if child.value != None:            
+                        child.status = NODE_EVALUATED
+                    
+                    else:
+                        if not children_pulled_from_gdb:
+                            child.to_lo_condition(input_mode)
+                            child_hash = child.get_hash(force_recalculate=True)
+                        
+                        # if chid pulled from gdb, no need to recompute the hash to save time
+                        child_hash = child.get_hash()
+                        # check if we have processed the set before
+                        if self.is_in_graph(child_hash):
+                            child.id = self.graph[child_hash]
+                            child.status = NODE_REDUNDANT
+                        else:                
+                            child.status = NODE_UNIQUE
 
                     child_str_after = child.to_string()
                     child_hash = child.get_hash()
                     
                     if child.status == NODE_UNIQUE:
-                        uniques += 1 
+                        uniques += 1
                         child.id = uniques
                         self.save_unique_node(child_hash, child.id)
-                        # add parent
-                        nodes_parents[child.id] = [cnf_set.id]
                         nodes_children[cnf_set.id].append(child.id)
 
                         if self.args.output_graph_file:
@@ -332,7 +324,6 @@ class PatternSolver:
                     elif child.status == NODE_REDUNDANT:
                         redundant_hits += 1
                         redundant_ids[child.id] = 1
-                        nodes_parents[child.id].append(cnf_set.id)
                         nodes_children[cnf_set.id].append(child.id)
 
                         if self.args.output_graph_file:
@@ -352,16 +343,8 @@ class PatternSolver:
                 # otherwise, the cnf_set is already solved in the global DB table
                 global_save_status = self.save_parent_children(cnf_set, s1.get_hash(), s2.get_hash())
                 if global_save_status == SUCCESS:
-                    for child in (s1, s2):
-                        child_hash = child.get_hash()
+                    for child in (s1, s2):                        
                         if child.status == NODE_UNIQUE:
-                            # node is found solved in gdb
-                            if self.is_set_solved(child_hash):
-                                nodes_found_in_gdb += 1
-                                node_data = self.db_adaptor.gs_get_set_data(self.global_table_name, child_hash)
-                                child = Set(node_data['body'], id=child.id)
-                                child.computed_hash = child_hash
-
                             squeue.insert(child)
 
                 elif global_save_status == DB_UNIQUE_VIOLATION:
@@ -372,7 +355,7 @@ class PatternSolver:
                     self.leaves.append(cnf_set.id)
 
                 if self.args.verbos:
-                    print("Nodes so far: {:,} uniques and {:,} redundant_hits...".format(uniques, redundant_hits), end='\r')
+                    print("Nodes so far: {:,} uniques and {:,} redundant hits...".format(uniques, redundant_hits), end='\r')
 
             
             ### Solving the set is done, let's get the number of unique and redundant nodes

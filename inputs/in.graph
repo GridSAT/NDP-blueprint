@@ -1,74 +1,74 @@
 // The CNF Tree
 digraph {
 	graph [splines=polyline]
-	"868c4d8a75af90af4705195821afb2ad6ea6f798" [label="1\n(3 | -5 | 6) & (1 | 3 | 8) & (2 | 5 | -7) & (1 | 4 | 8) & (3 | 8 | 9)\n(1 | -2 | 3) & (1 | 4 | 5) & (1 | 5 | 6) & (2 | 7 | -8) & (4 | 5 | 9)" color=black]
-	"831127b0e8f133d93898d2673b1b9d6da1a4d18c" [label="(2 | 7 | -8) & (4 | 5 | 9)\n(1 | 2 | -3) & (4 | 5 | 6)" color=black]
-	"868c4d8a75af90af4705195821afb2ad6ea6f798" -> "831127b0e8f133d93898d2673b1b9d6da1a4d18c"
-	"68cd6a51e0b1852d2f5d0d5f1e01a770ab76c0be" [label="(-2 | 3) & (4 | 5) & (5 | 6) & (2 | 7 | -8) & (4 | 5 | 9)\n(-1 | 2) & (3 | 4) & (4 | 5) & (1 | 6 | -7) & (3 | 4 | 8)" color=black]
-	"868c4d8a75af90af4705195821afb2ad6ea6f798" -> "68cd6a51e0b1852d2f5d0d5f1e01a770ab76c0be"
-	c97f62de1ba14379f6f017f3dfcbf16fb199d041 [label="(4 | 5 | 6)\n(1 | 2 | 3)" color=black]
-	"831127b0e8f133d93898d2673b1b9d6da1a4d18c" -> c97f62de1ba14379f6f017f3dfcbf16fb199d041
-	c866b76c1ac27ab0a66e0bb030637b1b6d0bb172 [label="(2 | -3) & (4 | 5 | 6)\n(1 | -2) & (3 | 4 | 5)" color=black]
-	"831127b0e8f133d93898d2673b1b9d6da1a4d18c" -> c866b76c1ac27ab0a66e0bb030637b1b6d0bb172
-	"891404b1f1a532a5c99cd722466484a45029d257" [label="(2) & (3 | 4) & (4 | 5) & (3 | 4 | 8)\n(1) & (2 | 3) & (3 | 4) & (2 | 3 | 5)" color=black]
-	"68cd6a51e0b1852d2f5d0d5f1e01a770ab76c0be" -> "891404b1f1a532a5c99cd722466484a45029d257"
-	a75771839d381f3363240ac0c09067c1a5b377a3 [label="(3 | 4) & (4 | 5) & (6 | -7) & (3 | 4 | 8)\n(1 | 2) & (2 | 3) & (4 | -5) & (1 | 2 | 6)" color=black]
-	"68cd6a51e0b1852d2f5d0d5f1e01a770ab76c0be" -> a75771839d381f3363240ac0c09067c1a5b377a3
-	c2c53d66948214258a26ca9ca845d7ac0c17f8e7 [label="8\nT"]
-	c97f62de1ba14379f6f017f3dfcbf16fb199d041 -> c2c53d66948214258a26ca9ca845d7ac0c17f8e7
-	e97543e8793f59c7aa79daebc8d07a0c4b291e52 [label="(2 | 3)\n(1 | 2)" color=black]
-	c97f62de1ba14379f6f017f3dfcbf16fb199d041 -> e97543e8793f59c7aa79daebc8d07a0c4b291e52
-	c97f62de1ba14379f6f017f3dfcbf16fb199d041 [color=red]
-	c866b76c1ac27ab0a66e0bb030637b1b6d0bb172 -> c97f62de1ba14379f6f017f3dfcbf16fb199d041
-	"1bc888b8178f101e0bce2fe21a3063b2ce36eb55" [label="(-2) & (3 | 4 | 5)\n(-1) & (2 | 3 | 4)" color=black]
-	c866b76c1ac27ab0a66e0bb030637b1b6d0bb172 -> "1bc888b8178f101e0bce2fe21a3063b2ce36eb55"
-	"76d928da1e0a03db098c30e54b2e9d7f7067f3d8" [label="(2 | 3) & (3 | 4) & (2 | 3 | 5)\n(1 | 2) & (2 | 3) & (1 | 2 | 4)" color=black]
-	"891404b1f1a532a5c99cd722466484a45029d257" -> "76d928da1e0a03db098c30e54b2e9d7f7067f3d8"
-	e69f20e9f683920d3fb4329abd951e878b1f9372 [label="13\nF"]
-	"891404b1f1a532a5c99cd722466484a45029d257" -> e69f20e9f683920d3fb4329abd951e878b1f9372
-	"49f4758daf1ecea42b902c468cde99a99487f067" [label="(2 | 3) & (4 | -5)\n(1 | 2) & (3 | -4)" color=black]
-	a75771839d381f3363240ac0c09067c1a5b377a3 -> "49f4758daf1ecea42b902c468cde99a99487f067"
-	fd94883a541c50b5788471ea68a3fa821e1bd44e [label="(2) & (2 | 3) & (4 | -5) & (2 | 6)\n(1) & (1 | 2) & (3 | -4) & (1 | 5)" color=black]
-	a75771839d381f3363240ac0c09067c1a5b377a3 -> fd94883a541c50b5788471ea68a3fa821e1bd44e
-	c2c53d66948214258a26ca9ca845d7ac0c17f8e7 [label="16\nT"]
-	e97543e8793f59c7aa79daebc8d07a0c4b291e52 -> c2c53d66948214258a26ca9ca845d7ac0c17f8e7
-	"356a192b7913b04c54574d18c28d46e6395428ab" [label="(2)\n(1)" color=black]
-	e97543e8793f59c7aa79daebc8d07a0c4b291e52 -> "356a192b7913b04c54574d18c28d46e6395428ab"
-	e69f20e9f683920d3fb4329abd951e878b1f9372 [label="18\nF"]
-	"1bc888b8178f101e0bce2fe21a3063b2ce36eb55" -> e69f20e9f683920d3fb4329abd951e878b1f9372
-	c97f62de1ba14379f6f017f3dfcbf16fb199d041 [color=red]
-	"1bc888b8178f101e0bce2fe21a3063b2ce36eb55" -> c97f62de1ba14379f6f017f3dfcbf16fb199d041
-	e97543e8793f59c7aa79daebc8d07a0c4b291e52 [color=red]
-	"76d928da1e0a03db098c30e54b2e9d7f7067f3d8" -> e97543e8793f59c7aa79daebc8d07a0c4b291e52
-	"31fc2d511ab934b4f3aefa31e90f6cc30d1e2b71" [label="(2) & (2 | 3) & (2 | 4)\n(1) & (1 | 2) & (1 | 3)" color=black]
-	"76d928da1e0a03db098c30e54b2e9d7f7067f3d8" -> "31fc2d511ab934b4f3aefa31e90f6cc30d1e2b71"
-	"577254fb2b4562af7eeb38798cf93114558c764b" [label="(3 | -4)\n(1 | -2)" color=black]
-	"49f4758daf1ecea42b902c468cde99a99487f067" -> "577254fb2b4562af7eeb38798cf93114558c764b"
-	"5a5ee46278cb506ab4390e1a36fb293e740d723b" [label="(2) & (3 | -4)\n(1) & (2 | -3)" color=black]
-	"49f4758daf1ecea42b902c468cde99a99487f067" -> "5a5ee46278cb506ab4390e1a36fb293e740d723b"
-	"577254fb2b4562af7eeb38798cf93114558c764b" [color=red]
-	fd94883a541c50b5788471ea68a3fa821e1bd44e -> "577254fb2b4562af7eeb38798cf93114558c764b"
-	e69f20e9f683920d3fb4329abd951e878b1f9372 [label="25\nF"]
-	fd94883a541c50b5788471ea68a3fa821e1bd44e -> e69f20e9f683920d3fb4329abd951e878b1f9372
-	c2c53d66948214258a26ca9ca845d7ac0c17f8e7 [label="26\nT"]
-	"356a192b7913b04c54574d18c28d46e6395428ab" -> c2c53d66948214258a26ca9ca845d7ac0c17f8e7
-	e69f20e9f683920d3fb4329abd951e878b1f9372 [label="27\nF"]
-	"356a192b7913b04c54574d18c28d46e6395428ab" -> e69f20e9f683920d3fb4329abd951e878b1f9372
-	c2c53d66948214258a26ca9ca845d7ac0c17f8e7 [label="28\nT"]
-	"31fc2d511ab934b4f3aefa31e90f6cc30d1e2b71" -> c2c53d66948214258a26ca9ca845d7ac0c17f8e7
-	e69f20e9f683920d3fb4329abd951e878b1f9372 [label="29\nF"]
-	"31fc2d511ab934b4f3aefa31e90f6cc30d1e2b71" -> e69f20e9f683920d3fb4329abd951e878b1f9372
-	c2c53d66948214258a26ca9ca845d7ac0c17f8e7 [label="30\nT"]
-	"577254fb2b4562af7eeb38798cf93114558c764b" -> c2c53d66948214258a26ca9ca845d7ac0c17f8e7
-	"7984b0a0e139cabadb5afc7756d473fb34d23819" [label="(-2)\n(-1)" color=black]
-	"577254fb2b4562af7eeb38798cf93114558c764b" -> "7984b0a0e139cabadb5afc7756d473fb34d23819"
-	"577254fb2b4562af7eeb38798cf93114558c764b" [color=red]
-	"5a5ee46278cb506ab4390e1a36fb293e740d723b" -> "577254fb2b4562af7eeb38798cf93114558c764b"
-	e69f20e9f683920d3fb4329abd951e878b1f9372 [label="33\nF"]
-	"5a5ee46278cb506ab4390e1a36fb293e740d723b" -> e69f20e9f683920d3fb4329abd951e878b1f9372
-	e69f20e9f683920d3fb4329abd951e878b1f9372 [label="34\nF"]
-	"7984b0a0e139cabadb5afc7756d473fb34d23819" -> e69f20e9f683920d3fb4329abd951e878b1f9372
-	c2c53d66948214258a26ca9ca845d7ac0c17f8e7 [label="35\nT"]
-	"7984b0a0e139cabadb5afc7756d473fb34d23819" -> c2c53d66948214258a26ca9ca845d7ac0c17f8e7
-	stats [label="Input set processed in 8.881 seconds\nProblem ID: 4fb7aa4e244a8b3f3d2f0f139afe0fbf8d4e507e\nSolution mode: LO\nTotal number of nodes: 35\nNumber of unique nodes: 17\nNumber of redundant subtrees: 5\nNumber of leaves nodes: 13\nCurrent memory usage: 37.3MiB" shape=record style=dotted]
+	1 [label="1\n(3 | -5 | 6) & (1 | 3 | 8) & (2 | 5 | -7) & (1 | 4 | 8) & (3 | 8 | 9)\n(1 | -2 | 3) & (1 | 4 | 5) & (1 | 5 | 6) & (2 | 7 | -8) & (4 | 5 | 9)" color=black]
+	2 [label="2\n(2 | 7 | -8) & (4 | 5 | 9)\n(1 | 2 | -3) & (4 | 5 | 6)" color=black]
+	1 -> 2
+	3 [label="3\n(-2 | 3) & (4 | 5) & (5 | 6) & (2 | 7 | -8) & (4 | 5 | 9)\n(-1 | 2) & (3 | 4) & (4 | 5) & (1 | 6 | -7) & (3 | 4 | 8)" color=black]
+	1 -> 3
+	4 [label="4\n(1 | 2 | 3)\n(1 | 2 | 3)" color=black]
+	2 -> 4
+	5 [label="5\n(1 | -2) & (3 | 4 | 5)\n(1 | -2) & (3 | 4 | 5)" color=black]
+	2 -> 5
+	6 [label="6\n(1) & (2 | 3) & (3 | 4) & (2 | 3 | 5)\n(1) & (2 | 3) & (3 | 4) & (2 | 3 | 5)" color=black]
+	3 -> 6
+	7 [label="7\n(1 | 2) & (2 | 3) & (4 | -5) & (1 | 2 | 6)\n(1 | 2) & (2 | 3) & (4 | -5) & (1 | 2 | 6)" color=black]
+	3 -> 7
+	T [label=T]
+	4 -> T
+	8 [label="8\n(1 | 2)\n(1 | 2)" color=black]
+	4 -> 8
+	4 [color=red]
+	5 -> 4
+	9 [label="9\n(-1) & (2 | 3 | 4)\n(-1) & (2 | 3 | 4)" color=black]
+	5 -> 9
+	10 [label="10\n(1 | 2) & (2 | 3) & (1 | 2 | 4)\n(1 | 2) & (2 | 3) & (1 | 2 | 4)" color=black]
+	6 -> 10
+	F [label=F]
+	6 -> F
+	11 [label="11\n(1 | 2) & (3 | -4)\n(1 | 2) & (3 | -4)" color=black]
+	7 -> 11
+	12 [label="12\n(1) & (1 | 2) & (3 | -4) & (1 | 5)\n(1) & (1 | 2) & (3 | -4) & (1 | 5)" color=black]
+	7 -> 12
+	T [label=T]
+	8 -> T
+	13 [label="13\n(1)\n(1)" color=black]
+	8 -> 13
+	F [label=F]
+	9 -> F
+	4 [color=red]
+	9 -> 4
+	8 [color=red]
+	10 -> 8
+	14 [label="14\n(1) & (1 | 2) & (1 | 3)\n(1) & (1 | 2) & (1 | 3)" color=black]
+	10 -> 14
+	15 [label="15\n(1 | -2)\n(1 | -2)" color=black]
+	11 -> 15
+	16 [label="16\n(1) & (2 | -3)\n(1) & (2 | -3)" color=black]
+	11 -> 16
+	15 [color=red]
+	12 -> 15
+	F [label=F]
+	12 -> F
+	T [label=T]
+	13 -> T
+	F [label=F]
+	13 -> F
+	T [label=T]
+	14 -> T
+	F [label=F]
+	14 -> F
+	T [label=T]
+	15 -> T
+	17 [label="17\n(-1)\n(-1)" color=black]
+	15 -> 17
+	15 [color=red]
+	16 -> 15
+	F [label=F]
+	16 -> F
+	F [label=F]
+	17 -> F
+	T [label=T]
+	17 -> T
+	stats [label="Input set processed in 401.287 seconds\nProblem ID: 4fb7aa4e244a8b3f3d2f0f139afe0fbf8d4e507e\nSolution mode: LO\nNumber of unique nodes: 17\nNumber of redundant subtrees: 3\nNumber of redundant hits: 5\nNumber of nodes found in gdb: 16\nCurrent memory usage: 38.5MiB" shape=record style=dotted]
 }

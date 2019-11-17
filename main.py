@@ -78,6 +78,7 @@ if __name__ == "__main__":
     parser.add_argument("-g", "--output-graph-file", type=str, help="Output graph file in Graphviz format")
     parser.add_argument("-rdb", "--use-runtime-db", help="Use database for set lookup in table established only for the current cnf", action="store_true")
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
+    parser.add_argument("-gnm", "--gdb-no-mem", help="Don't load hashes from global DB into memory. Use this only if gdb gets huge and doesn't fit in memory. (slower)", action="store_true")
     parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
     flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)
     flo+: Linearily ordered, where all nodes in the tree will be brought to L.O. condition, clauses are sorted per size. (default)
