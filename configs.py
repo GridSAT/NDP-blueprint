@@ -28,7 +28,7 @@ REDUNDANT_HITS = 2
 
 # modes
 MODE_FLO = "flo"
-MODE_FLOP = "flo+"
+MODE_FLOP = "flop"
 MODE_LOU = "lou"
 MODE_LO = "lo"
 MODE_NORMAL = "normal"
