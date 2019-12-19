@@ -7,8 +7,6 @@ from PatternSolver import *
 from InputReader import InputReader
 import configs
 import traceback
-from git import Repo
-repo = Repo(os.getcwd())
 
 # todo: 
 # - Handle if input has [x, -x]. What I did now is to normalize the clause once it get read. However, this will not enable us to 
@@ -87,7 +85,7 @@ if __name__ == "__main__":
     lou: Linearily ordered universal, where all nodes in the tree will be brought to L.O.U. condition.
     normal: Don't use Nasser's algorithm and use a normal evaluation of the set with no preprocessing steps except for ascending sorting of vars within each clause.
             '''), choices=['flo', 'flop', 'lo', 'lou', 'normal'], default="flo")
-    parser.add_argument('--version', action='version', version='%(prog)s ' + repo.tags[-1].name) # can use GitPython to automatically get latest tag here
+    parser.add_argument('--version', action='version', version='%(prog)s ') # can use GitPython to automatically get latest tag here
 
     args = parser.parse_args()
 
