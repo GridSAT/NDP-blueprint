@@ -44,6 +44,8 @@ import multiprocessing as mp
 TRUE_SET_HASH = Set.calculate_hash('T')
 FALSE_SET_HASH = Set.calculate_hash('F')
 
+CPU_COUNT = mp.cpu_count()
+
 # An object represent a node in the graph
 class Node:
     
@@ -107,7 +109,7 @@ class PatternSolver:
         self.start_creating_threads = False
         self.max_threads = 0
         if self.args.threads == 0:
-            self.max_threads = mp.cpu_count()
+            self.max_threads = CPU_COUNT
         elif self.args.threads > 1:
             self.max_threads = self.args.threads
         self.threads = []
@@ -346,7 +348,7 @@ class PatternSolver:
                 self.leaves.append(cnf_set.id)
 
             if self.args.verbos:
-                print("Thread '{}', Nodes so far: {:,} uniques and {:,} redundant hits...".format(name, self.uniques, self.redundant_hits), end='\r')
+                print("Process '{}', Nodes so far: {:,} uniques and {:,} redundant hits...".format(name, self.uniques, self.redundant_hits), end='\r')
 
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
             if generate_threads and (len(self.threads) < self.max_threads) and (self.max_threads == squeue.size()):
@@ -356,8 +358,32 @@ class PatternSolver:
                 #mp.set_start_method('spawn')
                 for i in range(0, threads_to_create):
                     cnf_set = squeue.pop()
-                    T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Thread #{i}'), name=f'Thread #{i}')
+                    T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}'), name=f'Process #{i}')
                     #T = threading.Thread(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False,f'Thread #{i}'), name=f'Thread #{i}')
+                    self.threads.append(T)
+
+                for i in range(0, threads_to_create):
+                    print(f"Creating process {i}")
+                    self.threads[i].start()
+
+                for i in range(0, threads_to_create):
+                    self.threads[i].join()
+                    print(f"{self.threads[i].name} joined!")
+
+                print()
+                print("All processes are completed!")
+
+
+            # in case we run "main" thread only, then we can use multi threading to solve. This is only useful when we have mor I/O operations
+            # which is typical when pulling an already solved problem from the global database
+            if not generate_threads and name=="main" and (len(self.threads) < CPU_COUNT) and (CPU_COUNT == squeue.size()):
+                generate_threads = False
+                threads_to_create = CPU_COUNT - len(self.threads)
+                #mp.set_start_method('spawn')
+                for i in range(0, threads_to_create):
+                    cnf_set = squeue.pop()
+                    #T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Thread #{i}'), name=f'Thread #{i}')
+                    T = threading.Thread(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False,f'Thread #{i}'), name=f'Thread #{i}')
                     self.threads.append(T)
 
                 for i in range(0, threads_to_create):
