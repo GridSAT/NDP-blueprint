@@ -22,7 +22,7 @@ class SuperQueue:
         else:
             self.objqueue = deque()   # queue of objects
             self.idsqueue = deque()   # queue of objects ids
-
+        
         self.db = DbAdapter()
         self.table_name = "queue_{}_{}".format(problem_id, str(time.time()).replace(".", ""))
         self.use_runtime_db = use_runtime_db
@@ -35,7 +35,7 @@ class SuperQueue:
         if self.use_runtime_db:
             self.db.rtq_cleanup(self.table_name)
 
-    def insert(self, item):    
+    def insert(self, item):
         will_add_new_item = True
         # in case of unique queue, make sure to add to the database only when new item is added
         if self.unique_queue and len(self.idsqueue) > self.idsqueue.append(item):
@@ -71,11 +71,14 @@ class SuperQueue:
 
         return item
 
-    def is_empty(self):
+    def size(self):
         size = 0
         if self.use_runtime_db:
             size = len(self.idsqueue)
         else:
             size = len(self.objqueue)
 
-        return not bool(size) #not bool(len(self.queue))
+        return size
+
+    def is_empty(self):
+        return not bool(self.size())

@@ -14,7 +14,6 @@ class DbAdapter:
         self.conn_string = "host={} port={} dbname={} user={} password={}".format(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
         self.conn = None
         self.cur = None
-        
         try:
             # connect to the PostgreSQL server
             self.conn = psycopg2.connect(self.conn_string, cursor_factory=psycopg2.extras.DictCursor)
@@ -41,7 +40,7 @@ class DbAdapter:
         """ create tables in the PostgreSQL database"""
         table_command = """
                 CREATE TABLE IF NOT EXISTS {0} (
-                hash BYTEA PRIMARY KEY,
+                hash BYTEA PRIMARY KEY deferrable initially deferred,
                 body TEXT,
                 cid1 BYTEA,
                 cid2 BYTEA,
@@ -52,8 +51,7 @@ class DbAdapter:
                 redundant_nodes INTEGER DEFAULT 0,
                 redundant_hits INTEGER DEFAULT 0,
                 redundant_times INTEGER DEFAULT 0,
-                date_created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                UNIQUE(hash)
+                date_created TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """.format(table_name)
         # redundant_nodes field counts how many redundant nodes in this set's subgraph.
@@ -208,7 +206,7 @@ class DbAdapter:
         """ create tables in the PostgreSQL database"""
         table_command = """
                 CREATE TABLE {0} (
-                id INTEGER PRIMARY KEY,
+                id BYTEA PRIMARY KEY,
                 body TEXT
             )
             """.format(table_name)
@@ -243,7 +241,8 @@ class DbAdapter:
         result = None
         try:
             self.cur.execute(sql.SQL("SELECT id, body FROM {0} WHERE id = %s LIMIT 1").format(sql.Identifier(table_name)), (id, ))
-            result = self.cur.fetchone()
+            row = self.cur.fetchone()
+            result = (bytes(row['id']), row['body'])
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
 
