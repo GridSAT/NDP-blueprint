@@ -200,6 +200,22 @@ class DbAdapter:
         return result
 
 
+    # drop all global db tables
+    def gs_drop_all(self):
+
+        tables = ["globalsetstable_lou", "globalsetstable_lo", "globalsetstable_flo", "globalsetstable_flop"]
+
+        for table_name in tables:
+            try:
+                self.cur.execute(sql.SQL("DROP TABLE IF EXISTS {0}").format(sql.Identifier(table_name)))
+                self.conn.commit()
+                print(f"Table {table_name} is deleted.")
+            except (Exception, psycopg2.DatabaseError) as error:            
+                logger.error("DB Error: " + str(error))
+    
+        return
+
+
     ### RunTimeQueue methods ###
 
     def rtq_create_table(self, table_name):

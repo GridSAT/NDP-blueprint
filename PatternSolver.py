@@ -44,7 +44,7 @@ import multiprocessing as mp
 TRUE_SET_HASH = Set.calculate_hash('T')
 FALSE_SET_HASH = Set.calculate_hash('F')
 
-CPU_COUNT = mp.cpu_count()
+CPU_COUNT = int(mp.cpu_count()/2)
 
 # An object represent a node in the graph
 class Node:
@@ -462,7 +462,6 @@ class PatternSolver:
                 print()
                 print("=== Set has been solved successfully.")
                 print("=== Getting statistics of all subgraphs...")
-            print(f"len graph = {len(self.graph)} and len children = {len(self.nodes_children)}")
 
             root_redundants = self.construct_graph_stats(root_set.id, self.nodes_children)
             self.redundants = len(self.redundant_ids)
