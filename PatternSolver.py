@@ -95,6 +95,7 @@ class PatternSolver:
         self.reset()
 
     def reset(self):
+        self.is_satisfiable = False
         self.graph = {}        
         self.leaves = []
         # populate nodes_stats with defaults
@@ -113,7 +114,6 @@ class PatternSolver:
         elif self.args.threads > 1:
             self.max_threads = self.args.threads
         self.threads = []
-
         
     def draw_graph(self, dot, outputfile):
         fg = open(outputfile, "w")
@@ -250,7 +250,7 @@ class PatternSolver:
             self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, red_id)
 
 
-    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", db_adaptor=None):
+    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", queue=None):
 
         try:
             if name == "main":
@@ -324,6 +324,8 @@ class PatternSolver:
                         dot.node(str(child.id), color='red')
 
                 elif child.status == NODE_EVALUATED:
+                    if child.value == True:
+                        self.is_satisfiable = True
                     if self.args.output_graph_file:
                         child.id = child.to_string()
                         dot.node(str(child.id), child.to_string())
@@ -356,9 +358,10 @@ class PatternSolver:
                 print()
                 threads_to_create = self.max_threads - len(self.threads)
                 #mp.set_start_method('spawn')
+                mpqueue = mp.Queue()
                 for i in range(0, threads_to_create):
                     cnf_set = squeue.pop()
-                    T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}'), name=f'Process #{i}')
+                    T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}', mpqueue), name=f'Process #{i}')
                     #T = threading.Thread(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False,f'Thread #{i}'), name=f'Thread #{i}')
                     self.threads.append(T)
 
@@ -368,6 +371,8 @@ class PatternSolver:
 
                 for i in range(0, threads_to_create):
                     self.threads[i].join()
+                    process_is_satisfiable = mpqueue.get()
+                    self.is_satisfiable |= process_is_satisfiable
                     print(f"{self.threads[i].name} joined!")
 
                 print()
@@ -396,10 +401,12 @@ class PatternSolver:
 
                 print()
                 print("All threads are completed!")
-
+        
+        if queue:
+            queue.put(self.is_satisfiable)
         print()
-        print(f"Thread {name} is completed!")
-            
+        print(f"Process {name} is completed!")
+                    
 
     def solve_set(self, root_set):
         
@@ -446,34 +453,40 @@ class PatternSolver:
 
             if self.max_threads:
                 print(f"Number of threads = {self.max_threads}")
-                self.process_nodes_queue(root_set, input_mode, dot, True)
-                self.reset()
-                # restart with no threads
-                self.max_threads = 0                
+                self.process_nodes_queue(root_set, input_mode, dot, True)                
                 print("Multi process execution is finished!")
-                print("Pulling data from the global DB...")
-                self.solve_set(root_set)
-                return
+                if not self.args.no_stats:
+                    self.reset()
+                    # restart with no threads
+                    self.max_threads = 0                
+                    print("Pulling data from the global DB...")
+                    self.solve_set(root_set)
+                    return
 
-            self.process_nodes_queue(root_set, input_mode, dot)
+            # if we're not coming from multithreading mode
+            if not self.max_threads:
+                self.process_nodes_queue(root_set, input_mode, dot)
 
             ### Solving the set is done, let's get the number of unique and redundant nodes
             if self.args.verbos:
                 print()
-                print("=== Set has been solved successfully.")
-                print("=== Getting statistics of all subgraphs...")
+                print("=== Set has been solved successfully.")                
 
-            root_redundants = self.construct_graph_stats(root_set.id, self.nodes_children)
-            self.redundants = len(self.redundant_ids)
-
-            if self.args.verbos:
-                print("=== Done getting the statistics.")
-            
-            if self.args.use_global_db:
+            if not self.args.no_stats:
                 if self.args.verbos:
-                    print("=== Saving the final result in the global DB...")
+                    print("=== Getting statistics of all subgraphs...")
 
-                self.save_in_global_db(root_redundants)
+                root_redundants = self.construct_graph_stats(root_set.id, self.nodes_children)
+                self.redundants = len(self.redundant_ids)
+
+                if self.args.verbos:
+                    print("=== Done getting the statistics.")
+                
+                if self.args.use_global_db:
+                    if self.args.verbos:
+                        print("=== Saving the final result in the global DB...")
+
+                    self.save_in_global_db(root_redundants)
             
         else:
             if self.args.verbos:                
@@ -486,17 +499,19 @@ class PatternSolver:
             self.redundant_hits = set_data["redundant_hits"]
 
             
-        #print("\n")
+        str_satisfiable = "Not satisfiable."
+        if self.is_satisfiable: str_satisfiable = "SATISFAIABLE!"
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time)
         stats += '\\n' + "Problem ID: {0}".format(self.problem_id)
         stats += '\\n' + "Solution mode: {0}".format(self.args.mode.upper())
-        stats += '\\n' + "Number of unique nodes: {0}".format(self.uniques)
-        stats += '\\n' + "Number of redundant subtrees: {0}".format(self.redundants)
-        stats += '\\n' + "Number of redundant hits: {0}".format(self.redundant_hits)
-        stats += '\\n' + "Number of nodes found in gdb: {0}".format(self.nodes_found_in_gdb)
-        #stats += '\\n' + "Total number of nodes in a complete binary tree for the problem: {0}".format(int(math.pow(2, math.ceil(math.log2(node_id)))-1))
+        stats += '\\n' + "The input set is {0}".format(str_satisfiable)
+        if not self.args.no_stats:
+            stats += '\\n' + "Number of unique nodes: {0}".format(self.uniques)
+            stats += '\\n' + "Number of redundant subtrees: {0}".format(self.redundants)
+            stats += '\\n' + "Number of redundant hits: {0}".format(self.redundant_hits)
+            stats += '\\n' + "Number of nodes found in gdb: {0}".format(self.nodes_found_in_gdb)
         stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 
         # draw graph

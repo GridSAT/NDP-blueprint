@@ -75,6 +75,7 @@ if __name__ == "__main__":
     group2.add_argument("-lf", "--line-input-file", type=argparse.FileType('r'), help="Represent the input set in one line stored in a file. Format: a|b|c&d|e|f ...")
     group2.add_argument("-d", "--dimacs", type=argparse.FileType('r'), help="File name to contain the set in DIMACS format. See http://bit.ly/dimcasf")
     parser.add_argument("-g", "--output-graph-file", type=str, help="Output graph file in Graphviz format")
+    parser.add_argument("-ns", "--no-stats", help="Short concise output. No stats about unique numbers and other information. This will disable the global database option.", action="store_true")
     parser.add_argument("-t", "--threads", type=int, help="Number of threads. Value 1 means no multithreading, 0 means max concurrent threads on the machine. This option will implicitly enable the global DB.", default=1)
     parser.add_argument("-rdb", "--use-runtime-db", help="Use database for set lookup in table established only for the current cnf", action="store_true")
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
@@ -94,8 +95,8 @@ if __name__ == "__main__":
         logger.setLevel(logging.CRITICAL)
     
     # if threads is set, enable gdb
-    # if args.threads == 0 or args.threads > 1:
-    #     args.use_global_db = True
+    if args.threads == 0 or args.threads > 1:
+        args.use_global_db = True
     if args.threads < 0:
         print("Option -t must be a positive number.")
         parser.print_help()
