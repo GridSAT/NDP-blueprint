@@ -95,8 +95,8 @@ if __name__ == "__main__":
         logger.setLevel(logging.CRITICAL)
     
     # if threads is set, enable gdb
-    if args.threads == 0 or args.threads > 1:
-        args.use_global_db = True
+    # if args.threads == 0 or args.threads > 1:
+    #     args.use_global_db = True
     if args.threads < 0:
         print("Option -t must be a positive number.")
         parser.print_help()
@@ -124,13 +124,4 @@ if __name__ == "__main__":
     Main(args)
     
     print('script took %.3f seconds' % (time.time() - start_time))
-
-
-
-        
-        
-
-
-
-        
 

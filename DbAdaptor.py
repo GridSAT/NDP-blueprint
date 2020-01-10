@@ -215,6 +215,17 @@ class DbAdapter:
     
         return
 
+    # drop all global db tables
+    def gs_drop_table(self, table_name):
+
+        try:
+            self.cur.execute(sql.SQL("DROP TABLE IF EXISTS {0}").format(sql.Identifier(table_name)))
+            self.conn.commit()
+            print(f"Table {table_name} is deleted.")
+        except (Exception, psycopg2.DatabaseError) as error:            
+            logger.error("DB Error: " + str(error))
+    
+        return
 
     ### RunTimeQueue methods ###
 
