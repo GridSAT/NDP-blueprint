@@ -14,22 +14,21 @@ class DbAdapter:
         self.conn_string = "host={} port={} dbname={} user={} password={}".format(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
         self.conn = None
         self.cur = None
-        try:
-            # connect to the PostgreSQL server
-            self.conn = psycopg2.connect(self.conn_string, cursor_factory=psycopg2.extras.DictCursor)
-            self.cur = self.conn.cursor()
-            
-        except (Exception, psycopg2.DatabaseError) as error:
-            logger.error("DB Error: " + str(error))
+
+        # connect to the PostgreSQL server
+        self.conn = psycopg2.connect(self.conn_string, cursor_factory=psycopg2.extras.DictCursor)
+        self.cur = self.conn.cursor()
+      
 
     def __del__(self):
         try:
             # close communication with the PostgreSQL database server
-            self.cur.close()
-            # commit the changes
-            self.conn.commit()
-            # close the connection
             if self.conn is not None:
+                self.cur.close()
+                        
+            # commit and close the connection
+            if self.conn is not None:
+                self.conn.commit()
                 self.conn.close()
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))

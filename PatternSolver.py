@@ -12,6 +12,7 @@ import SuperQueue
 from Set import Set
 import traceback
 import threading
+import psycopg2
 import multiprocessing as mp
 
 
@@ -85,7 +86,7 @@ class PatternSolver:
         if args.use_runtime_db:
             self.use_runtime_db = True
 
-        if args.use_runtime_db or args.use_global_db:            
+        if args.use_runtime_db or args.use_global_db:
             self.db_adaptor = DbAdapter()
 
         if args.mode:
@@ -259,8 +260,9 @@ class PatternSolver:
             squeue.insert(cnf_set)
             nodes_children[cnf_set.id] = []
 
-        except Exception:
-            logger.critical("Error - {0}".format(traceback.format_exc()))
+        except (Exception, psycopg2.DatabaseError) as error:
+            logger.error("DB Error: " + str(error))
+            db_adaptor = None
             if qu:
                 qu.put((None, None), False)
             return False

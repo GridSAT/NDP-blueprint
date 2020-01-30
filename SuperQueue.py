@@ -13,6 +13,8 @@ from ordered_set import OrderedSet
 
 class SuperQueue:
 
+    use_runtime_db = False
+
     def __init__(self, unique_queue=False, use_runtime_db=False, problem_id=PROBLEM_ID):
 
         self.unique_queue = unique_queue
