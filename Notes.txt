@@ -25,5 +25,25 @@ SELECT blocked_locks.pid     AS blocked_pid,
    WHERE NOT blocked_locks.GRANTED;
 
 
+Find locks
+-----------------
+mesaleh=> SELECT a.datname,
+         l.relation::regclass,
+         l.transactionid,
+         l.mode,
+         l.GRANTED,
+         a.usename,
+         a.query,
+         a.query_start,
+         age(now(), a.query_start) AS "age",
+         a.pid
+FROM pg_stat_activity a
+JOIN pg_locks l ON l.pid = a.pid
+ORDER BY a.query_start;
+
+
+
+
 Table size
 ----------
+SELECT pg_size_pretty( pg_total_relation_size('tablename') );

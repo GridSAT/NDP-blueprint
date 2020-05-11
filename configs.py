@@ -35,7 +35,7 @@ MODE_NORMAL = "normal"
 
 
 # logging
-logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d %(funcName)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 logger = logging.getLogger('NSS')
 logger.setLevel(logging.WARNING)
 

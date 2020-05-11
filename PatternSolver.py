@@ -121,7 +121,6 @@ class PatternSolver:
         fg.close()
 
     def load_set_records(self, num_clauses):
-        if self.args.use_global_db and not self.args.gdb_no_mem:
             # load solved hashes
             solve_hashes = self.db_adaptor.gs_load_solved_sets(self.global_table_name, num_clauses)
             self.solved_sets = {el[0]:[el[1], el[2]] for el in solve_hashes}
@@ -193,7 +192,7 @@ class PatternSolver:
             num_of_vars = abs(cnf_set.clauses[-1].raw[-1])
 
         # save the set in global DB if it's not there already
-        if self.args.use_global_db and not self.is_set_in_gdb(cnf_hash):
+        if self.args.use_global_db and not self.is_set_in_gdb(cnf_hash, db_adaptor):
             return db_adaptor.gs_insert_row(self.global_table_name,
                                          cnf_hash,              # set hash
                                          cnf_set.to_string(pretty=False),   # set body
@@ -440,7 +439,8 @@ class PatternSolver:
         if self.args.use_global_db:
             # create the table if not exist
             self.db_adaptor.gs_create_table(self.global_table_name)
-            self.load_set_records(len(root_set.clauses))
+            if not self.args.gdb_no_mem:
+                self.load_set_records(len(root_set.clauses))
 
         # check if we have processed the CNF before
         if not self.is_set_solved(setafterhash):

@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             //"args": ["-lf", "${workspaceFolder}/inputs/in.txt", "-m", "lo", "-g", "d:\\Projects\\NasserPatternSolver-python\\inputs\\in.graph", "-v", "-gdb"]
             //"args": ["-lf", "${workspaceFolder}/inputs/in2.txt", "-m", "lou", "-gdb", "-v", "-g", "${workspaceFolder}/inputs/in_lou_new.graph"]
-            "args": ["-d", "${workspaceFolder}/inputs/test_cases/Factoring17.txt", "-m", "lou", "-gdb", "-v", "-rdb"]
+            "args": ["-d", "${workspaceFolder}/inputs/test_cases/Factoring17.txt", "-m", "lou", "-gdb", "-v", "-rdb", "--gdb-no-mem"]
             //"args": ["-d", "${workspaceFolder}/inputs/c8blif.txt_3CNF.txt", "-m", "lo", "-gdb", "-v"]
         },
         {

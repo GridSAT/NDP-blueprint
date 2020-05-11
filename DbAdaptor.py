@@ -11,7 +11,7 @@ class DbAdapter:
 
 
     def __init__(self):
-        self.conn_string = "host={} port={} dbname={} user={} password={}".format(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
+        self.conn_string = "host={} port={} dbname={} user={} password={} options='-c lock_timeout=1000'".format(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
         self.conn = None
         self.cur = None
 
@@ -23,12 +23,11 @@ class DbAdapter:
     def __del__(self):
         try:
             # close communication with the PostgreSQL database server
-            if self.conn is not None:
-                self.cur.close()
                         
             # commit and close the connection
             if self.conn is not None:
                 self.conn.commit()
+                self.cur.close()
                 self.conn.close()
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
@@ -60,11 +59,11 @@ class DbAdapter:
         # The UNIQUE constraint will prevent any other process from writing the same data, the exception should be handled then
         # be aware that creating an index on table with exaustive inserts can slow it down. Check the speed without the index and compare.
         index_commands = [
-                "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name),
-                "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name),
-                "CREATE INDEX IF NOT EXISTS date_created ON {0} (date_created)".format(table_name),
-                "CREATE INDEX IF NOT EXISTS unique_nodes ON {0} (unique_nodes)".format(table_name),
-                "CREATE INDEX IF NOT EXISTS redundant_times ON {0} (redundant_times)".format(table_name)
+                # "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name),
+                # "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name),
+                # "CREATE INDEX IF NOT EXISTS date_created ON {0} (date_created)".format(table_name),
+                # "CREATE INDEX IF NOT EXISTS unique_nodes ON {0} (unique_nodes)".format(table_name),
+                # "CREATE INDEX IF NOT EXISTS redundant_times ON {0} (redundant_times)".format(table_name)
             ]
         
         try:
@@ -73,6 +72,7 @@ class DbAdapter:
             # create indeces
             for index_command in index_commands:
                 self.cur.execute(index_command)
+            self.conn.commit()
             
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
@@ -112,8 +112,10 @@ class DbAdapter:
     def gs_is_hash_solved(self, table_name, value):        
         result = False
         try:
-            self.cur.execute(sql.SQL("SELECT 1 FROM {0} WHERE hash = %s AND unique_nodes > 0").format(sql.Identifier(table_name)), (value, ))
-            result = bool(self.cur.rowcount)
+            self.cur.execute(sql.SQL("SELECT unique_nodes FROM {0} WHERE hash = %s").format(sql.Identifier(table_name)), (value, ))
+            row = self.cur.fetchone()
+            if row:
+                result = bool(row['unique_nodes'])
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
             result = False
@@ -123,6 +125,7 @@ class DbAdapter:
         result = False
         try:
             self.cur.execute(sql.SQL("UPDATE {0} SET unique_nodes = %s, redundant_nodes = %s, redundant_hits = %s WHERE hash = %s").format(sql.Identifier(table_name)), (unique_nodes, redundant_nodes, redundant_hits, hash))
+            self.conn.commit()
             # get result
             result = bool(self.cur.rowcount)
         except (Exception, psycopg2.DatabaseError) as error:
@@ -136,6 +139,7 @@ class DbAdapter:
         result = False
         try:
             self.cur.execute(sql.SQL("UPDATE {0} SET redundant_times = redundant_times + %s WHERE hash = %s").format(sql.Identifier(table_name)), (redundant_times, hash))
+            self.conn.commit()
             # get result
             result = bool(self.cur.rowcount)
         except (Exception, psycopg2.DatabaseError) as error:
@@ -256,6 +260,7 @@ class DbAdapter:
             # execute the INSERT statement
             self.cur.execute(sql.SQL("INSERT INTO {0}(id, body) VALUES(%s, %s)").format(sql.Identifier(table_name)), (id, body))            
             success = True
+            self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
             success = False
@@ -279,6 +284,7 @@ class DbAdapter:
         success = False
         try:
             self.cur.execute(sql.SQL("DROP table {0}").format(sql.Identifier(table_name)))
+            self.conn.commit()
             # get result
             success = True
         except (Exception, psycopg2.DatabaseError) as error:
