@@ -114,6 +114,11 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(3)
 
+    # only use -gnm if -gdb is set
+    if args.gdb_no_mem and not args.use_global_db:
+        parser.error('-gnm/--gdb-no-mem MUST be used with -gdb/--use-global-db option')
+
+
     if args.verbos:
         logger.setLevel(logging.INFO)
     elif args.very_verbos:

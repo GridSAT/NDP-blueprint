@@ -11,7 +11,8 @@ class DbAdapter:
 
 
     def __init__(self):
-        self.conn_string = "host={} port={} dbname={} user={} password={} options='-c lock_timeout=1000'".format(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
+        self.conn_string = "host={} port={} dbname={} user={} password={}".format(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
+        #self.conn_string = "host={} port={} dbname={} user={} password={} options='-c lock_timeout=1000'".format(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)
         self.conn = None
         self.cur = None
 
@@ -59,10 +60,10 @@ class DbAdapter:
         # The UNIQUE constraint will prevent any other process from writing the same data, the exception should be handled then
         # be aware that creating an index on table with exaustive inserts can slow it down. Check the speed without the index and compare.
         index_commands = [
-                # "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name),
+                "CREATE INDEX IF NOT EXISTS num_clauses ON {0} (num_of_clauses)".format(table_name),
                 # "CREATE INDEX IF NOT EXISTS num_vars ON {0} (num_of_vars)".format(table_name),
                 # "CREATE INDEX IF NOT EXISTS date_created ON {0} (date_created)".format(table_name),
-                # "CREATE INDEX IF NOT EXISTS unique_nodes ON {0} (unique_nodes)".format(table_name),
+                "CREATE INDEX IF NOT EXISTS unique_nodes ON {0} (unique_nodes)".format(table_name),
                 # "CREATE INDEX IF NOT EXISTS redundant_times ON {0} (redundant_times)".format(table_name)
             ]
         
