@@ -81,13 +81,27 @@ if __name__ == "__main__":
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
     parser.add_argument("-gnm", "--gdb-no-mem", help="Don't load hashes from global DB into memory. Use this only if gdb gets huge and doesn't fit in memory. (slower)", action="store_true")
     parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
+    [LO condition is where all variables appear in the ascending order]
     flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)
-    flop: Linearily ordered, where all nodes in the tree will be brought to L.O. condition, clauses are sorted per size. (default)
+    flop: Linearily ordered, where all nodes in the tree will be brought to L.O. condition, clauses are sorted per size.
     lo: Linearily ordered, where only the root node will be brought to L.O. condition while the rest of the nodes will be brought to L.O.U. condition.
     lou: Linearily ordered universal, where all nodes in the tree will be brought to L.O.U. condition.
     normal: Don't use Nasser's algorithm and use a normal evaluation of the set with no preprocessing steps except for ascending sorting of vars within each clause.
             '''), choices=['flo', 'flop', 'lo', 'lou', 'normal'], default="flo")
     parser.add_argument('--version', action='version', version='%(prog)s ') # can use GitPython to automatically get latest tag here
+
+    # The algorithm
+    # --------------
+    # START:
+    # if FLOP:
+    #     place unit clauses first
+    # rename vars
+    # sort within clauses
+    # if FLO or FLOP or (LO root node only):
+    #     sort clauses()
+
+    # check if it meets LO condition, if not go to step START
+
 
     args = parser.parse_args()
 

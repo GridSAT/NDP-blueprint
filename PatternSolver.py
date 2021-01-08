@@ -45,7 +45,7 @@ import multiprocessing as mp
 TRUE_SET_HASH = Set.calculate_hash('T')
 FALSE_SET_HASH = Set.calculate_hash('F')
 
-CPU_COUNT = int(mp.cpu_count()/2)
+CPU_COUNT = mp.cpu_count()
 
 # An object represent a node in the graph
 class Node:
@@ -110,7 +110,8 @@ class PatternSolver:
         self.start_creating_threads = False
         self.max_threads = 0
         if self.args.threads == 0:
-            self.max_threads = CPU_COUNT
+            # since usually each cpu core has two threads, max_threads = CPU_COUNT * 2
+            self.max_threads = CPU_COUNT * 2
         elif self.args.threads > 1:
             self.max_threads = self.args.threads
         self.threads = []
@@ -504,7 +505,7 @@ class PatternSolver:
 
             
         str_satisfiable = "Not satisfiable."
-        if self.is_satisfiable: str_satisfiable = "SATISFAIABLE!"
+        if self.is_satisfiable: str_satisfiable = "SATISFIABLE!"
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time)
