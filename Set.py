@@ -11,6 +11,9 @@ class Set:
         self.value = None
         self.id = id
         self.computed_hash = None
+        self.final_names_map = []
+        self.evaluated_vars = {}
+        self.original_values = {}
 
         # create a Set object from input string
         if str_input:
@@ -77,6 +80,16 @@ class Set:
                     id = id + 1
                     
                 cl.raw[i] = new * sign
+        
+        var_positions = list(names_map.keys())
+        
+        # if the set already gone through a round of rename before
+        if self.final_names_map:
+            self.final_names_map = [self.final_names_map[v-1] for v in var_positions]
+
+        # if it's first round of rename, typically LOU mode has only one rename round per set
+        else:
+            self.final_names_map = var_positions
         
 
     # l.o. state as in "Constructive patterns of logical truth", or "#2SAT is in P" p. 23:
@@ -208,6 +221,16 @@ class Set:
         if len(right_clauses) == 0 and right_set.value == None:
             right_set.set_value(True)
             
+
+        # set a map to the original variables in each set
+        for sset in (left_set, right_set):
+            vars = sset.get_variables()
+            sset.original_values = {v:self.original_values[self.final_names_map[v-1]] for v in vars}
+
+        left_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[pivot-1]]:True}
+        right_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[pivot-1]]:False}
+
+
         return (left_set, right_set)
 
 
@@ -236,6 +259,15 @@ class Set:
             res = '&'.join(res_arr)
             
         return res
+
+    
+    # return a list of variables in the set
+    def get_variables(self):
+        vars = set()
+        for cl in self.clauses:
+            vars |= set(map(abs, cl.raw))
+
+        return list(vars)
 
     @staticmethod
     def calculate_hash(input_str):

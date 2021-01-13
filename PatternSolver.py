@@ -75,6 +75,7 @@ class PatternSolver:
     db_adaptor = None
     problem_id = None
     use_runtime_db = False
+    solution = None
     global_table_name = GLOBAL_SETS_TABLE
 
     def __init__(self, args=None, problem_id=PROBLEM_ID):        
@@ -293,6 +294,10 @@ class PatternSolver:
                 # check if the set is already evaluated to boolean value
                 if child.value != None:
                     child.status = NODE_EVALUATED
+
+                    # solution is FOUND! .. save solution if satisfiable
+                    if child.value == True and self.solution == None:
+                        self.solution = child.evaluated_vars
                 
                 else:
                     if not children_pulled_from_gdb:
@@ -317,7 +322,8 @@ class PatternSolver:
                     nodes_children[cnf_set.id].append(child.id)
 
                     if self.args.output_graph_file:
-                        dot.node(str(child.id), child_str_before + "\\n" + child_str_after, color='black')
+                        dot.node(str(child.id), child_str_before + "\\n" + child_str_after + "\\n" + f"fnm = {child.final_names_map}" +
+                         "\\n" + f"ov = {child.original_values}" + "\\n" + f"sol = {child.evaluated_vars}", color='black')
 
                 elif child.status == NODE_REDUNDANT:
                     self.redundant_hits += 1
@@ -426,6 +432,11 @@ class PatternSolver:
         
         logger.debug("Set #1 - to root set to {} mode".format(self.args.mode))
         setbefore = root_set.to_string()
+
+        # create a map of variables, root node has a default map of a variable to itself
+        vars = root_set.get_variables()
+        root_set.original_values = dict(zip(vars, vars))
+
         root_set.to_lo_condition(self.args.mode)
         setafterhash = root_set.get_hash(force_recalculate=True)
         root_set.id = setafterhash
@@ -449,7 +460,7 @@ class PatternSolver:
                 setafter = root_set.to_string()
                 dot.node(str(setafterhash), setbefore + "\\n" + setafter, color='black')
 
-            ## Processing the nodes ##            
+            ## Processing the nodes ##
             # Note about multithreading:
             # Multithreading in python doesn't take advantage of multi core hardware very well. Read: http://python-notes.curiousefficiency.org/en/latest/python3/multicore_python.html
             # So the solution I implemented here is to use multiprocessing instead of multithreading. In multiprocessing, python uses a core for each process
@@ -512,6 +523,8 @@ class PatternSolver:
         stats += '\\n' + "Problem ID: {0}".format(self.problem_id)
         stats += '\\n' + "Solution mode: {0}".format(self.args.mode.upper())
         stats += '\\n' + "The input set is {0}".format(str_satisfiable)
+        if self.is_satisfiable:
+            stats += '\\n' + "The solution is {0}".format(self.solution)
         if not self.args.no_stats:
             stats += '\\n' + "Number of unique nodes: {0}".format(self.uniques)
             stats += '\\n' + "Number of redundant subtrees: {0}".format(self.redundants)
@@ -521,7 +534,7 @@ class PatternSolver:
 
         # draw graph
         if self.args.output_graph_file:
-            dot.node("stats", stats, shape="record", style="dotted")
+            dot.node("stats", stats, shape="box", style="dotted")
             self.draw_graph(dot, self.args.output_graph_file)
 
         if self.args.quiet == False:
