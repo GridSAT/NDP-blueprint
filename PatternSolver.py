@@ -14,6 +14,7 @@ import traceback
 import threading
 import psycopg2
 import multiprocessing as mp
+import queue
 
 
 # TODO:
@@ -251,6 +252,7 @@ class PatternSolver:
 
         nodes_children = {}
         is_satisfiable = False
+        solution = None
         
         try:
             if name == "main":
@@ -268,7 +270,7 @@ class PatternSolver:
                 qu.put((None, None), False)
             return False
 
-        while not squeue.is_empty():
+        while not squeue.is_empty() and not (bool(solution) & self.args.exit_upon_solving):
             cnf_set = squeue.pop()            
             logger.debug("Set #{0}".format(cnf_set.id))
 
@@ -296,8 +298,11 @@ class PatternSolver:
                     child.status = NODE_EVALUATED
 
                     # solution is FOUND! .. save solution if satisfiable
-                    if child.value == True and self.solution == None:
-                        self.solution = child.evaluated_vars
+                    if child.value == True and solution == None:
+                        solution = child.evaluated_vars
+                        print()
+                        print(f"Process '{name}' found the solution!")
+                        print()
                 
                 else:
                     if not children_pulled_from_gdb:
@@ -361,7 +366,7 @@ class PatternSolver:
 
             if self.args.verbos:
                 print("Process '{}', Nodes so far: {:,} uniques and {:,} redundant hits...".format(name, self.uniques, self.redundant_hits), end='\r')
-
+           
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
             if generate_threads and (len(self.threads) < self.max_threads) and (self.max_threads == squeue.size()):
                 generate_threads = False
@@ -382,39 +387,58 @@ class PatternSolver:
                     print(f"Creating process {i}")
                     self.threads[i].start()
 
-                for i in range(0, threads_to_create):
-                    process_is_satisfiable, process_nodes_children = self.threads[i].qu.get()
-                    print()
-                    print(f"{self.threads[i].name} queue is retrieved.")
-                    self.threads[i].join()
-                    print()
-                    print(f"{self.threads[i].name} joined!")
+                i = 0
+                while self.threads:
+                    try:
+                        i = i % len(self.threads)
+                        process_is_satisfiable, process_nodes_children, solution = self.threads[i].qu.get(False)
+                        print()
+                        print(f"{self.threads[i].name} queue is retrieved.")   
+                        self.threads[i].join()
+                        print()
+                        print(f"{self.threads[i].name} finished!")
 
-                    # in case the child process exited before it solve the problem, and get the main process to solve it
-                    if process_nodes_children == None:
-                        squeue.insert(self.threads[i].node)
-                    else:
-                        #nodes_children.update(process_nodes_children)
-                        for k in process_nodes_children.keys():
-                            if nodes_children.get(k, False) and len(nodes_children[k]) >= len(process_nodes_children[k]):
-                                continue
-                            nodes_children[k] = process_nodes_children[k]
+                        # in case the child process exited before it solve the problem, and get the main process to solve it
+                        if process_nodes_children == None and not solution:
+                            squeue.insert(self.threads[i].node)
+                        else:
+                            #nodes_children.update(process_nodes_children)
+                            for k in process_nodes_children.keys():
+                                if nodes_children.get(k, False) and len(nodes_children[k]) >= len(process_nodes_children[k]):
+                                    continue
+                                nodes_children[k] = process_nodes_children[k]
 
-                    if process_is_satisfiable != None:
-                        is_satisfiable |= process_is_satisfiable
-                    
+                        if process_is_satisfiable != None:
+                            is_satisfiable |= process_is_satisfiable
+
+                        self.threads.pop(i)
+
+                        if self.args.exit_upon_solving and solution:
+                            print("Terminating all processes....")
+                            for t in self.threads:
+                                try:
+                                    t.terminate()
+                                    t.join()
+                                except:
+                                    pass
+                            break
+
+                    except queue.Empty:
+                        time.sleep(1)                        
+                        i += 1
+                                        
                 print()
                 print("All processes are completed!")
                 
         
         if qu:
-            qu.put((is_satisfiable, nodes_children), False)
+            qu.put((is_satisfiable, nodes_children, solution), False)
             print()
             print(f"Process {name} data is sent to the main process")
         else:
             self.is_satisfiable = is_satisfiable
             self.nodes_children = nodes_children
-            
+            self.solution       = solution            
 
         print()
         print(f"Process {name} is completed!")
