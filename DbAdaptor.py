@@ -238,7 +238,8 @@ class DbAdapter:
         table_command = """
                 CREATE TABLE {0} (
                 id BYTEA PRIMARY KEY,
-                body TEXT
+                body TEXT,
+                properties TEXT DEFAULT NULL
             )
             """.format(table_name)
 
@@ -253,13 +254,13 @@ class DbAdapter:
         return True
  
  
-    def rtq_insert_set(self, table_name, id, body):
+    def rtq_insert_set(self, table_name, id, body, properties):
 
         """ insert a new row into the table """
         success = False
         try:            
             # execute the INSERT statement
-            self.cur.execute(sql.SQL("INSERT INTO {0}(id, body) VALUES(%s, %s)").format(sql.Identifier(table_name)), (id, body))            
+            self.cur.execute(sql.SQL("INSERT INTO {0}(id, body, properties) VALUES(%s, %s, %s)").format(sql.Identifier(table_name)), (id, body, properties))            
             success = True
             self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
@@ -272,9 +273,9 @@ class DbAdapter:
         
         result = None
         try:
-            self.cur.execute(sql.SQL("SELECT id, body FROM {0} WHERE id = %s LIMIT 1").format(sql.Identifier(table_name)), (id, ))
+            self.cur.execute(sql.SQL("SELECT id, body, properties FROM {0} WHERE id = %s LIMIT 1").format(sql.Identifier(table_name)), (id, ))
             row = self.cur.fetchone()
-            result = (bytes(row['id']), row['body'])
+            result = (bytes(row['id']), row['body'], row['properties'])
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
 

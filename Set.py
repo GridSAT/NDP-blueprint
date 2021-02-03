@@ -1,11 +1,12 @@
 import hashlib
+import ast
 from configs import *
 from Clause import *
 
 class Set:
     
 
-    def __init__(self, str_input=None, id=0):
+    def __init__(self, str_input=None, id=0, properties=None):
 
         self.clauses = []
         self.value = None
@@ -37,7 +38,66 @@ class Set:
 
             except Exception as e:
                 print("Error: " + str(e))
-            
+
+
+        if properties:
+            self.deserialize_properties(properties)
+
+
+    # deserialize set's properties when retrieved from the DB
+    # As of now we have 3 properties: evaluated_vars, original_vars, final_names_map
+    # are stored as string in order, all are concatenated using '|'
+    def deserialize_properties(self, properties):
+        self.evaluated_vars = {}
+        self.original_values = {}
+        self.final_names_map = []
+        
+        evaluated_vars, original_values, final_names_map = properties.split('|')
+
+        ### get evaluated_vars
+        if evaluated_vars:
+            # input evaluated vars should be in the format [comma delimited true variables]-[comma delimited false variables]
+            # for example: '1,3,5,2-6,4' => {1:true, 3:true, 5:true, 2:true, 6:false, 4:false}
+            true_vars, false_vars = evaluated_vars.split('-')
+            flag = True
+            for vars in (true_vars, false_vars):
+                if vars:
+                    self.evaluated_vars.update({v:flag for v in list(map(int, vars.split(',')))})
+                flag = not flag
+
+        ### get original_values
+        if original_values:
+            #example format: {2:5,3:6,4:1,5:8,6:2,7:7,8:4,9:9}
+            self.original_values = ast.literal_eval(original_values)
+
+        ### get final_names_map
+        if final_names_map:
+            # example format: [2,3,4,5,6,7,8,9]
+            self.final_names_map = ast.literal_eval(final_names_map)
+
+
+    # convert evaluated_vars, original_values and final_names_map to string for DB storage
+    def serialize_properties(self):
+        
+        ### evaluated_vars
+        # convert evaluated vars of this set into string for DB storage
+        # the format is [comma delimited true variables]-[comma delimited false variables]
+        true_ev_vars = []
+        false_ev_vars = []
+        for k,v in self.evaluated_vars.items():
+            if v:   true_ev_vars.append(str(k))
+            else:   false_ev_vars.append(str(k))
+
+        ev_var_serialized = ','.join(true_ev_vars) + '-' + ','.join(false_ev_vars)       
+
+        ### original_values
+        original_values_serialized = str(self.original_values) 
+    
+        ### final_names_map
+        final_names_map_serialized = str(self.final_names_map)
+
+        return ev_var_serialized + '|' + original_values_serialized + '|' + final_names_map_serialized
+
 
     # when all clauses in a set get evaluated, then the set has a final value
     def set_value(self, val):
@@ -220,7 +280,7 @@ class Set:
 
         if len(right_clauses) == 0 and right_set.value == None:
             right_set.set_value(True)
-            
+
 
         # set a map to the original variables in each set
         for sset in (left_set, right_set):
@@ -229,7 +289,6 @@ class Set:
 
         left_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[pivot-1]]:True}
         right_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[pivot-1]]:False}
-
 
         return (left_set, right_set)
 

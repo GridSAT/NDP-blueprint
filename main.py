@@ -49,11 +49,39 @@ def Main(args):
     try:
         input_reader = InputReader(input_type, input_content)
         CnfSet = input_reader.get_cnf_set()
-
+        
         # start processing the root set
         if len(CnfSet.clauses) > 0 or CnfSet.value != None:
             PAT = PatternSolver(args=args, problem_id=CnfSet.get_hash().hex())
             PAT.solve_set(CnfSet)
+
+            # save solution in a file
+            if args.output_solution_file and PAT.solution:
+                solution = PAT.format_solution(PAT.solution)
+                file_name = PAT.problem_id
+
+                # if input is a file
+                if input_type != args.line_input:
+                    file_name = os.path.splitext(input_content.name)[0]
+
+                file_name += '_' + args.mode
+                file_name += '.sol'
+                fout = open(file_name, 'w')
+                fout.write(solution)
+                fout.close()
+                logger.info(f"Solution written to: {file_name}")
+
+            # verify the solution
+            if args.verify and PAT.solution:
+                if args.line_input: original_input = args.line_input
+                else: original_input = open(input_content.name, 'r')
+                input_reader = InputReader(input_type, original_input)
+                CnfSet = input_reader.get_cnf_set()
+                if PAT.verify_solution(CnfSet, PAT.solution):
+                    logger.info("The solution is VERIFIED!")
+                else:
+                    logger.info("The solution is NOT correct! ****")
+            
 
     except Exception as e:
         logger.critical("Error - {0}".format(str(e)))
@@ -75,9 +103,11 @@ if __name__ == "__main__":
     group2.add_argument("-lf", "--line-input-file", type=argparse.FileType('r'), help="Represent the input set in one line stored in a file. Format: a|b|c&d|e|f ...")
     group2.add_argument("-d", "--dimacs", type=argparse.FileType('r'), help="File name to contain the set in DIMACS format. See http://bit.ly/dimcasf")
     parser.add_argument("-g", "--output-graph-file", type=str, help="Output graph file in Graphviz format")
+    parser.add_argument("-s", "--output-solution-file", action="store_true", help="Output solution file.")
     parser.add_argument("-ns", "--no-stats", help="Short concise output. No stats about unique numbers and other information. This will disable the global database option.", action="store_true")
     parser.add_argument("-t", "--threads", type=int, help="Number of threads. Value 1 means no multithreading, 0 means max concurrent threads on the machine. This option will implicitly enable the global DB.", default=1)
     parser.add_argument("-e", "--exit-upon-solving", help="Exit whenever a solution is found.", action="store_true")
+    parser.add_argument("-verify", "--verify", help="Verify the solution at the end, if any.", action="store_true")
     parser.add_argument("-rdb", "--use-runtime-db", help="Use database for set lookup in table established only for the current cnf", action="store_true")
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
     parser.add_argument("-gnm", "--gdb-no-mem", help="Don't load hashes from global DB into memory. Use this only if gdb gets huge and doesn't fit in memory. (slower)", action="store_true")

@@ -267,7 +267,7 @@ class PatternSolver:
             logger.error("DB Error: " + str(error))
             db_adaptor = None
             if qu:
-                qu.put((None, None), False)
+                qu.put((None, None, None), False)
             return False
 
         while not squeue.is_empty() and not (bool(solution) & self.args.exit_upon_solving):
@@ -300,9 +300,12 @@ class PatternSolver:
                     # solution is FOUND! .. save solution if satisfiable
                     if child.value == True and solution == None:
                         solution = child.evaluated_vars
-                        print()
-                        print(f"Process '{name}' found the solution!")
-                        print()
+                        # sort by key
+                        solution = dict(sorted(solution.items()))
+                        if self.args.verbos:
+                            print()
+                            print(f"Process '{name}' found the solution!")
+                            print()
                 
                 else:
                     if not children_pulled_from_gdb:
@@ -391,7 +394,7 @@ class PatternSolver:
                 while self.threads:
                     try:
                         i = i % len(self.threads)
-                        process_is_satisfiable, process_nodes_children, solution = self.threads[i].qu.get(False)
+                        process_is_satisfiable, process_nodes_children, process_solution = self.threads[i].qu.get(False)
                         print()
                         print(f"{self.threads[i].name} queue is retrieved.")   
                         self.threads[i].join()
@@ -399,7 +402,7 @@ class PatternSolver:
                         print(f"{self.threads[i].name} finished!")
 
                         # in case the child process exited before it solve the problem, and get the main process to solve it
-                        if process_nodes_children == None and not solution:
+                        if process_nodes_children == None and not process_solution:
                             squeue.insert(self.threads[i].node)
                         else:
                             #nodes_children.update(process_nodes_children)
@@ -408,20 +411,23 @@ class PatternSolver:
                                     continue
                                 nodes_children[k] = process_nodes_children[k]
 
-                        if process_is_satisfiable != None:
-                            is_satisfiable |= process_is_satisfiable
-
-                        self.threads.pop(i)
-
-                        if self.args.exit_upon_solving and solution:
-                            print("Terminating all processes....")
-                            for t in self.threads:
-                                try:
-                                    t.terminate()
-                                    t.join()
-                                except:
-                                    pass
-                            break
+                            if process_is_satisfiable != None:
+                                is_satisfiable |= process_is_satisfiable
+                            
+                            #solution = process_solution
+                            if process_solution:
+                                solution = process_solution
+                                if self.args.exit_upon_solving:
+                                    print("Terminating all processes....")
+                                    for t in self.threads:
+                                        try:
+                                            t.terminate()
+                                            t.join()
+                                        except:
+                                            pass
+                                    break
+                            
+                            self.threads.pop(i)
 
                     except queue.Empty:
                         time.sleep(1)                        
@@ -438,7 +444,7 @@ class PatternSolver:
         else:
             self.is_satisfiable = is_satisfiable
             self.nodes_children = nodes_children
-            self.solution       = solution            
+            self.solution       = solution
 
         print()
         print(f"Process {name} is completed!")
@@ -449,6 +455,8 @@ class PatternSolver:
         
         start_time = time.time()
         
+        logger.info(f"Solving problem ID: {self.problem_id}")
+
         # graph drawing        
         graph_attr={}
         graph_attr["splines"] = "polyline"
@@ -564,3 +572,43 @@ class PatternSolver:
         if self.args.quiet == False:
             print("\nExecution finished!")
             print(stats.replace("\\n", "\n"))
+
+
+    # format the solution for storage
+    def format_solution(self, solution):
+        true_vars = []
+        false_vars = []
+        result = ""
+        for k,v in self.solution.items():
+            if v == True:
+                true_vars.append(str(k))
+            else:
+                false_vars.append(str(k))
+
+        if true_vars:
+            result = "T:"+ ','.join(true_vars) + "\n"
+        if false_vars:
+            result += "F:"+ ','.join(false_vars)
+
+        return result
+
+
+    def verify_solution(self, CnfSet, solution):
+        true_vars = []
+        false_vars = []
+        for k,v in self.solution.items():
+            if v == True:
+                true_vars.append(k)
+            else:
+                false_vars.append(k) 
+           
+        for s in CnfSet.clauses:
+            result = False
+            for v in s.raw:
+                if (v > 0 and v in true_vars) or (v < 0 and abs(v) in false_vars):
+                    result = True
+
+            if not result:
+                return False
+                        
+        return True

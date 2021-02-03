@@ -46,7 +46,7 @@ class SuperQueue:
         if will_add_new_item:
             if self.use_runtime_db:
                 self.idsqueue.append(item.id)
-                self.db.rtq_insert_set(self.table_name, item.id, item.to_string(pretty=False))
+                self.db.rtq_insert_set(self.table_name, item.id, item.to_string(pretty=False), item.serialize_properties())
             else:
                 self.objqueue.append(item)
             
@@ -61,8 +61,8 @@ class SuperQueue:
                 self.idsqueue.remove(objid)
             else:
                 objid = self.idsqueue.popleft()
-            id, body = self.db.rtq_get_set(self.table_name, objid)
-            item = Set.Set(body)
+            id, body, properties = self.db.rtq_get_set(self.table_name, objid)
+            item = Set.Set(body, properties=properties)
             item.id = id
 
         elif self.unique_queue:
