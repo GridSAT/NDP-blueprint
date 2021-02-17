@@ -140,8 +140,38 @@ if __name__ == "__main__":
         logger.setLevel(logging.CRITICAL)
     
     # if threads is set, enable gdb
-    # if args.threads == 0 or args.threads > 1:
+    # A long note regarding multithreading and gdb:
+    #---------------------------------------------
+    
+    # When we solve a problem using multithreading/processes, each thread will process a subtree. 
+    # All thread should check a common storage (gdb in this case) to check for common nodes. This check
+    # will avoid processing of a subtree that's been already processed by another thread. This is a major 
+    # contribution of the theory behind the solution of course. However, in order to achieve that, each 
+    # thread need to check the DB for "every node" it processes. Let's call the time required for this 
+    # operation D time, whereas if the thread the time required to process the node is P time. 
+    # So without the checking of the common node, the thread will spend P x n (n is # of nodes in the tree)
+    # to process the tree, whereas with common DB, it'll need (P + D) x n` (where n` is number of unique nodes)
+    # So the idea here is that in order to make sense to have the DB of common nodes, the cost of processing the 
+    # common subtree must be larger than D x n`. In other words, P x n`` > D x n`. Where n`` is the size of the 
+    # common subtree(s). 
+    # That being said, it's been found that almost always, the common subtrees are far less than unique ones. 
+    # Also, for most of nodes, especially on LOU mode where bringing the node to LO condition requires only one
+    # iteration, P is very small that it's less than D time. 
+    # This concludes the fact that P x n`` < D x n` and the cost of having common storage "in the current implementation"
+    # is bad.
+    # Recommendations:
+    # - We need another common nodes storage different than postgres when checking the existence of the node is less than processing it.
+    # - The above conclution is valid by experiment for LOU, and partially for LO. We need to do more experiemnts for LO, FLO and FLOP 
+    # where processing a node can take longer than LOU to draw the same conclusion, otherwise the flag to use gdb can be automatically set
+    # with these modes and problem size.
+    # - For now, let's disable the automatic activation of gdb with multithreading.
+    #
+    # otherwise if we want to use gdb, we can explicitly set the commandline option to do so.
+
+    # if args.threads > 1:
     #     args.use_global_db = True
+
+
     if args.threads < 0:
         print("Option -t must be a positive number.")
         parser.print_help()
