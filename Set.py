@@ -150,6 +150,8 @@ class Set:
         # if it's first round of rename, typically LOU mode has only one rename round per set
         else:
             self.final_names_map = var_positions
+
+        self.sort_within_clauses()
         
 
     # l.o. state as in "Constructive patterns of logical truth", or "#2SAT is in P" p. 23:
@@ -163,13 +165,6 @@ class Set:
         # lou (linearly ordered universal), is a state where condition# 2 is skipped
         # normal: only condition 1 is met
     def is_in_lo_state(self, mode=MODE_LO):
-
-        # condition 1
-        self.sort_within_clauses()
-
-        # condition 2
-        if mode != MODE_LOU and mode != MODE_NORMAL:
-            self.sort_clauses()
 
         # condition 3
         if mode != MODE_NORMAL:
@@ -218,11 +213,19 @@ class Set:
 
         # rename
         self.rename_vars()
-
+        
         # check L.O. conditions
-        while not self.is_in_lo_state(mode):        
+        while not self.is_in_lo_state(mode):
+
+            # condition 2
+            if mode != MODE_LOU and mode != MODE_NORMAL:
+                self.sort_clauses()
+                if self.is_in_lo_state(mode):
+                    break
+
             # rename
             self.rename_vars()
+            
 
 
     # evaluate the set and produce two branches
