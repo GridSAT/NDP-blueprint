@@ -330,8 +330,9 @@ class PatternSolver:
                     nodes_children[cnf_set.id].append(child.id)
 
                     if self.args.output_graph_file:
-                        dot.node(str(child.id), child_str_before + "\\n" + child_str_after + "\\n" + f"fnm = {child.final_names_map}" +
+                        dot.node(child.id.hex(), child_str_before + "\\n" + child_str_after + "\\n" + f"fnm = {child.final_names_map}" +
                          "\\n" + f"ov = {child.original_values}" + "\\n" + f"sol = {child.evaluated_vars}", color='black')
+                        dot.edge(cnf_set.id.hex(), child.id.hex())
 
                 elif child.status == NODE_REDUNDANT:
                     self.redundant_hits += 1
@@ -339,7 +340,8 @@ class PatternSolver:
                     nodes_children[cnf_set.id].append(child.id)
 
                     if self.args.output_graph_file:
-                        dot.node(str(child.id), color='red')
+                        dot.node(child.id.hex(), color='red')
+                        dot.edge(cnf_set.id.hex(), child.id.hex())
 
                 elif child.status == NODE_EVALUATED:
                     if child.value == True:
@@ -347,9 +349,7 @@ class PatternSolver:
                     if self.args.output_graph_file:
                         child.id = child.to_string()
                         dot.node(str(child.id), child.to_string())
-
-                if self.args.output_graph_file:
-                    dot.edge(str(cnf_set.id), str(child.id))
+                        dot.edge(cnf_set.id.hex(), child.id)
 
             # cnf nodes in this loop are all unique, if they weren't they wouldn't be in the queue
             # if insertion in the global table is successful, save children in the queue, 
@@ -490,7 +490,7 @@ class PatternSolver:
         if not self.is_set_solved(setafterhash):
             if self.args.output_graph_file:
                 setafter = root_set.to_string()
-                dot.node(str(setafterhash), setbefore + "\\n" + setafter, color='black')
+                dot.node(setafterhash.hex(), setbefore + "\\n" + setafter, color='black')
 
             ## Processing the nodes ##
             # Note about multithreading:

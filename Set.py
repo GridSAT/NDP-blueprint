@@ -123,7 +123,13 @@ class Set:
             self.clauses[i].sort()
 
     def sort_clauses(self):
-        self.clauses = sorted(self.clauses)
+        #self.clauses = sorted(self.clauses)
+
+        def sort_by_var(cl):
+            return abs(cl.raw[0])
+
+        if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
+            self.clauses.sort(key=sort_by_var)
         #self.clauses.sort()
 
     def rename_vars(self):
@@ -178,6 +184,7 @@ class Set:
                     logger.debug("Not in l.o.: min_var > MIN_LITERAL. min_var = {0}, MIN_LITERAL = {1}".format(min_var, MIN_LITERAL))
                     return False
 
+                # condition 3
                 for cl in self.clauses:
                     for var in cl.raw:
                         var = abs(var)
@@ -188,6 +195,15 @@ class Set:
                         if not seen_vars.get(var, None):
                             seen_vars[var] = True
                             min_var = var
+
+                # condition #2: is sorted?
+                if mode != MODE_LOU:
+                    min_var = abs(self.clauses[0].raw[0])
+                    for cl in self.clauses:
+                        var = abs(cl.raw[0])                            
+                        if var < min_var:
+                            return False
+                        min_var = var
 
         return True
 
@@ -203,20 +219,28 @@ class Set:
             self.clauses.sort(key=ShiftUnit)
 
 
+    def sort_clauses_by_length(self):
+
+        def clause_len(cl):
+            return len(cl.raw)
+
+        if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
+            self.clauses.sort(key=clause_len)
+
+
 
     # convert to L.O. condition
     def to_lo_condition(self, mode=MODE_LO):
 
         if mode == MODE_FLOP:
             # bring unit clauses to the front of the set
-            self.place_unit_clauses_first()
+            # self.place_unit_clauses_first()
+            self.sort_clauses_by_length()
 
         # rename
         self.rename_vars()
-        
         # check L.O. conditions
         while not self.is_in_lo_state(mode):
-
             # condition 2
             if mode != MODE_LOU and mode != MODE_NORMAL:
                 self.sort_clauses()
