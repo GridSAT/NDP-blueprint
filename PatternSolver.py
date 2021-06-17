@@ -253,6 +253,8 @@ class PatternSolver:
         nodes_children = {}
         is_satisfiable = False
         solution = None
+        starting_len = len(cnf_set.clauses)
+        print(f"len = {starting_len}")
         
         try:
             if name == "main":
@@ -368,7 +370,7 @@ class PatternSolver:
                 self.leaves.append(cnf_set.id)
 
             if self.args.verbos:
-                print("Process '{}', Nodes so far: {:,} uniques and {:,} redundant hits...".format(name, self.uniques, self.redundant_hits), end='\r')
+                print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
            
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
             if generate_threads and (len(self.threads) < self.max_threads) and (self.max_threads == squeue.size()):
