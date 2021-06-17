@@ -369,7 +369,7 @@ class PatternSolver:
             if s1.value != None and s2.value != None:
                 self.leaves.append(cnf_set.id)
 
-            if self.args.verbos: 
+            if self.args.verbos:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
            
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
