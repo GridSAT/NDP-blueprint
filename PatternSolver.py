@@ -256,10 +256,9 @@ class PatternSolver:
         starting_len = len(cnf_set.clauses)
         print(f"len = {starting_len}")
         
-        try:
-            if name == "main":
-                db_adaptor = self.db_adaptor
-            else:
+        db_adaptor = self.db_adaptor
+        try:            
+            if self.args.use_runtime_db or self.args.use_global_db:
                 db_adaptor = DbAdapter()
             squeue = SuperQueue.SuperQueue(use_runtime_db=self.use_runtime_db, problem_id=cnf_set.get_hash().hex())
             squeue.insert(cnf_set)
@@ -267,6 +266,7 @@ class PatternSolver:
 
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
+            logger.critical("Error - {0}".format(traceback.format_exc()))
             db_adaptor = None
             if qu:
                 qu.put((None, None, None), False)

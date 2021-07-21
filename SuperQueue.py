@@ -24,11 +24,11 @@ class SuperQueue:
         else:
             self.objqueue = deque()   # queue of objects
             self.idsqueue = deque()   # queue of objects ids
-        
-        self.db = DbAdapter()
+                            
         self.table_name = "queue_{}_{}".format(problem_id, str(time.time()).replace(".", ""))
         self.use_runtime_db = use_runtime_db
         if use_runtime_db:
+            self.db = DbAdapter()
             self.db.rtq_create_table(self.table_name)
         
 
