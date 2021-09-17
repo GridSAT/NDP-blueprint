@@ -1,0 +1,4 @@
+ordered-set
+psutil
+psycopg2
+graphviz
