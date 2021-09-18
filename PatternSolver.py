@@ -254,7 +254,6 @@ class PatternSolver:
         is_satisfiable = False
         solution = None
         starting_len = len(cnf_set.clauses)
-        print(f"len = {starting_len}")
         
         db_adaptor = self.db_adaptor
         try:            
