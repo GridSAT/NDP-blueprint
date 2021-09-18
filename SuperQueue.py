@@ -18,19 +18,19 @@ class SuperQueue:
     def __init__(self, unique_queue=False, use_runtime_db=False, problem_id=PROBLEM_ID):
 
         self.unique_queue = unique_queue
-        if unique_queue:            
+        if unique_queue:
             self.objqueue = OrderedSet()
             self.idsqueue = OrderedSet()   # queue of objects ids
         else:
             self.objqueue = deque()   # queue of objects
             self.idsqueue = deque()   # queue of objects ids
-                            
+
         self.table_name = "queue_{}_{}".format(problem_id, str(time.time()).replace(".", ""))
         self.use_runtime_db = use_runtime_db
         if use_runtime_db:
             self.db = DbAdapter()
             self.db.rtq_create_table(self.table_name)
-        
+
 
     def __del__(self):
         #drop table
@@ -49,11 +49,11 @@ class SuperQueue:
                 self.db.rtq_insert_set(self.table_name, item.id, item.to_string(pretty=False), item.serialize_properties())
             else:
                 self.objqueue.append(item)
-            
+
         return True
 
     def pop(self):
-        item = None        
+        item = None
         if self.use_runtime_db:
             objid = None
             if self.unique_queue:

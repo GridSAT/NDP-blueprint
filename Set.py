@@ -4,7 +4,7 @@ from configs import *
 from Clause import *
 
 class Set:
-    
+
 
     def __init__(self, str_input=None, id=0, properties=None):
 
@@ -28,8 +28,8 @@ class Set:
                     s = cl.split('|')
                     # remove duplicates within clause
                     s = frozenset(map(int, s))
-                    
-                    # adding in a set container will remove duplicate clauses but will shuffle input order, so don't do it   
+
+                    # adding in a set container will remove duplicate clauses but will shuffle input order, so don't do it
                     clauses_set.append(s)
 
                 # create clauses objects
@@ -51,7 +51,7 @@ class Set:
         self.evaluated_vars = {}
         self.original_values = {}
         self.final_names_map = []
-        
+
         evaluated_vars, original_values, final_names_map = properties.split('|')
 
         ### get evaluated_vars
@@ -78,7 +78,7 @@ class Set:
 
     # convert evaluated_vars, original_values and final_names_map to string for DB storage
     def serialize_properties(self):
-        
+
         ### evaluated_vars
         # convert evaluated vars of this set into string for DB storage
         # the format is [comma delimited true variables]-[comma delimited false variables]
@@ -88,11 +88,11 @@ class Set:
             if v:   true_ev_vars.append(str(k))
             else:   false_ev_vars.append(str(k))
 
-        ev_var_serialized = ','.join(true_ev_vars) + '-' + ','.join(false_ev_vars)       
+        ev_var_serialized = ','.join(true_ev_vars) + '-' + ','.join(false_ev_vars)
 
         ### original_values
-        original_values_serialized = str(self.original_values) 
-    
+        original_values_serialized = str(self.original_values)
+
         ### final_names_map
         final_names_map_serialized = str(self.final_names_map)
 
@@ -144,11 +144,11 @@ class Set:
                     new = id
                     names_map[abs(cl.raw[i])] = new
                     id = id + 1
-                    
+
                 cl.raw[i] = new * sign
-        
+
         var_positions = list(names_map.keys())
-        
+
         # if the set already gone through a round of rename before
         if self.final_names_map:
             self.final_names_map = [self.final_names_map[v-1] for v in var_positions]
@@ -158,7 +158,7 @@ class Set:
             self.final_names_map = var_positions
 
         self.sort_within_clauses()
-        
+
 
     # l.o. state as in "Constructive patterns of logical truth", or "#2SAT is in P" p. 23:
         # 1- variables within clauses are in ascending order.
@@ -200,7 +200,7 @@ class Set:
                 if mode != MODE_LOU:
                     min_var = abs(self.clauses[0].raw[0])
                     for cl in self.clauses:
-                        var = abs(cl.raw[0])                            
+                        var = abs(cl.raw[0])
                         if var < min_var:
                             return False
                         min_var = var
@@ -209,7 +209,7 @@ class Set:
 
     # bring ONLY unit clauses to the far left (front of the set)
     def place_unit_clauses_first(self):
-        
+
         def ShiftUnit(cl):
             if len(cl.raw) == 1:
                 return -1
@@ -249,14 +249,14 @@ class Set:
 
             # rename
             self.rename_vars()
-            
+
 
 
     # evaluate the set and produce two branches
     def evaluate(self):
 
         # sanity check
-        if len(self.clauses) <= 0 or len(self.clauses[0].raw) <= 0: 
+        if len(self.clauses) <= 0 or len(self.clauses[0].raw) <= 0:
             return (None, None)
 
         # always pick the left most variable and evaluate based on it.
@@ -274,7 +274,7 @@ class Set:
             # remove clause, i.e. set the var to true
             if pivot in cl.raw:
                 # for left branch, the clause will be set to true. i.e. removed. (will not be added to left_clauses)
-                
+
                 # for right branch, remove the var from the clause
                 cl.raw.pop(cl.raw.index(pivot))
                 if len(cl.raw) > 0:
@@ -297,8 +297,8 @@ class Set:
             else:
                 left_clauses.append(Clause(cl.raw))
                 right_clauses.append(Clause(cl.raw))
-        
-        
+
+
         left_set.clauses = left_clauses
         right_set.clauses = right_clauses
 
@@ -336,17 +336,17 @@ class Set:
             if len(cl.raw):
                 if pretty:
                     res_arr.append('(' + ' | '.join(map(str, cl.raw)) + ')')
-                else:                    
+                else:
                     res_arr.append('|'.join(map(str, cl.raw)))
 
         if pretty:
             res = ' & '.join(res_arr)
         else:
             res = '&'.join(res_arr)
-            
+
         return res
 
-    
+
     # return a list of variables in the set
     def get_variables(self):
         vars = set()
@@ -358,8 +358,8 @@ class Set:
     @staticmethod
     def calculate_hash(input_str):
         # sha1 hash
-        return hashlib.sha1(bytes(input_str, "ascii")).digest() 
-        
+        return hashlib.sha1(bytes(input_str, "ascii")).digest()
+
     def get_hash(self, force_recalculate=False):
         if self.computed_hash == None or force_recalculate:
             self.computed_hash = Set.calculate_hash(self.to_string(pretty=False))
@@ -367,11 +367,11 @@ class Set:
 
     def print_set(self):
         print(self.to_string())
-    
+
     @staticmethod
     def get_true_set_hash():
         return Set.calculate_hash('T')
-    
+
     @staticmethod
     def get_false_set_hash():
         return Set.calculate_hash('F')

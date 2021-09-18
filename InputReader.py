@@ -16,7 +16,7 @@ class InputReader:
     input_type = None
 
     def __init__(self, intype, input):
-        
+
         # sanity checks
         if input == None or input == "":
             raise Exception("InputReader Error: Null input provided!")
@@ -34,11 +34,11 @@ class InputReader:
 
         self.input = input
         self.input_type = intype
-    
+
 
     # Parsing Single Line format
     def __parse_single_line_input(self, str_input):
-        
+
         # generate object
         CnfSet = Set(str_input)
         return CnfSet
@@ -58,7 +58,7 @@ class InputReader:
         # Initially I added the clauses in a set data structure to remove duplicates, then we add them in Set object at end of the method
         # However, this altered the input ordered of the clauses, which will violate the -lou option. Hence, I made it a list but accepted the fact
         # that there could be an input with duplicate clauses, in rare cases, however, that won't affect the final outcome.
-        clauses_set = [] 
+        clauses_set = []
         CnfSet = Set()
 
         while dline:
@@ -72,7 +72,7 @@ class InputReader:
             # skip comments, a comment line starts with 'c'
             if dline.startswith('c'):
                 continue
-            
+
             try:
                 # problem statement line
                 if dline.startswith('p'):
@@ -86,7 +86,7 @@ class InputReader:
                     for el in elems:
                         if not el:
                             continue
-                        
+
                         iel = int(el)
 
                         if iel == 0 and len(clause) == 0:
@@ -98,15 +98,15 @@ class InputReader:
                                 logger.critical("Error parsing DIMACS file at line {0}. A clause has more than 3 literals".format(lcnt))
                                 raise Exception("Error parsing DIMACS file at line {0}. A clause has more than 3 literals".format(lcnt))
 
-                            clauses_set.append(frozenset(clause))                            
+                            clauses_set.append(frozenset(clause))
                             clause = []
-                        
+
                         else:
                             clause.append(iel)
-        
+
             except Exception as e:
                 raise Exception("Error parsing DIMACS file at line {0} \n Exception: {1}".format(lcnt, str(e)))
-            
+
         # end of reading the file
         # if clause has elements, then close it
         if len(clause):
@@ -119,17 +119,17 @@ class InputReader:
 
         dimacs_file.close()
         return CnfSet
-            
+
 
 
     # read the input file and return a CNF set
     def get_cnf_set(self):
-        
+
         # input set has to be all in one line
-        if self.input_type == INPUT_SLF:          
+        if self.input_type == INPUT_SLF:
             seq = self.input.readline()
             self.input.close()
-        
+
         if self.input_type in [INPUT_SL, INPUT_SLF]:
             return self.__parse_single_line_input(seq)
 
@@ -138,6 +138,6 @@ class InputReader:
 
         else:
             raise Exception("Unknown input source")
-            
-            
+
+
 
