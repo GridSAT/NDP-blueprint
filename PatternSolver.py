@@ -511,6 +511,7 @@ class PatternSolver:
             
             if self.max_threads:
                 print("Multi process execution is finished!")
+                print("Completed in %.3f seconds" % (time.time() - start_time))
 
             ### Solving the set is done, let's get the number of unique and redundant nodes
             if self.args.verbos:
