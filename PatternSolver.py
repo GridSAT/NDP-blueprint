@@ -11,10 +11,8 @@ from DbAdaptor import DbAdapter
 import SuperQueue
 from Set import Set
 import traceback
-import threading
 import psycopg2
-import multiprocessing as mp
-import queue
+import ray
 
 
 # TODO:
@@ -46,7 +44,7 @@ import queue
 TRUE_SET_HASH = Set.calculate_hash('T')
 FALSE_SET_HASH = Set.calculate_hash('F')
 
-CPU_COUNT = mp.cpu_count()
+CPU_COUNT = 2 # mp.cpu_count()
 
 # An object represent a node in the graph
 class Node:
@@ -63,6 +61,33 @@ class Node:
         # has_potential_redundant is a flag that bubbles up from decendants to the parent.
         # if a parent node found two children with the flag set to True, it means it has a redundant node in its subgraph
         self.has_potential_redundant = False
+
+
+@ray.remote
+class RemotePatternSolver():
+    def __init__(self, pattern_solver, name='', node=None):
+        self.pattern_solver = pattern_solver
+        self.name = name
+        self.node = node
+
+    def process_nodes_queue(self, input_mode=None, dot=None):
+        return (self,) + self.pattern_solver.process_nodes_queue(self.node, input_mode, dot, generate_threads=False, name=self.name, is_sub_process=True)
+
+
+class PatternSolverArgs:
+    def __init__(self, args):
+        self.exit_upon_solving = args.exit_upon_solving
+        self.mode = args.mode
+        self.no_stats = args.no_stats
+        self.quiet = args.quiet
+        self.threads = args.threads
+        self.use_global_db = args.use_global_db
+        self.use_runtime_db = args.use_runtime_db
+        self.output_graph_file = args.output_graph_file
+        self.output_solution_file = args.output_solution_file
+        self.verbos = args.verbos
+        self.verify = args.verify
+        self.very_verbos = args.very_verbos
 
 
 class PatternSolver:
@@ -108,6 +133,7 @@ class PatternSolver:
         self.redundant_ids = {}  # ids of redundant nodes
         self.nodes_children = {} # children ids for every node
 
+        self.started_processes = 0
         self.threads_count = 0
         self.start_creating_threads = False
         self.max_threads = 0
@@ -247,8 +273,7 @@ class PatternSolver:
         for red_id, redundant_times  in root_redundants.items():
             self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, red_id)
 
-
-    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", qu=None):
+    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", is_sub_process=False):
 
         nodes_children = {}
         is_satisfiable = False
@@ -267,8 +292,8 @@ class PatternSolver:
             logger.error("DB Error: " + str(error))
             logger.critical("Error - {0}".format(traceback.format_exc()))
             db_adaptor = None
-            if qu:
-                qu.put((None, None, None), False)
+            if is_sub_process:
+                return None, None, None
             return False
 
         while not squeue.is_empty() and not (bool(solution) & self.args.exit_upon_solving):
@@ -360,6 +385,8 @@ class PatternSolver:
                 for child in (s1, s2):
                     if child.status == NODE_UNIQUE:
                         squeue.insert(child)
+                        #if max_threads > 0 and master_threads and len(master_threads) < max_threads:
+                        #    print()
 
             elif global_save_status == DB_UNIQUE_VIOLATION:
                 logger.debug("Node #{} is already found 'during execution' in global DB.".format(cnf_set.id))
@@ -368,87 +395,90 @@ class PatternSolver:
             if s1.value != None and s2.value != None:
                 self.leaves.append(cnf_set.id)
 
-            if self.args.verbos:
+            if False and self.args.verbos:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
 
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
-            if generate_threads and (len(self.threads) < self.max_threads) and (self.max_threads == squeue.size()):
+            if generate_threads and (squeue.size() == 256):
                 generate_threads = False
                 print()
-                threads_to_create = self.max_threads - len(self.threads)
-                #mp.set_start_method('spawn')
+                threads_to_create = self.max_threads
 
-                for i in range(0, threads_to_create):
-                    cnf_set = squeue.pop()
-                    mpqueue = mp.Queue(1024*1024*1024)
-                    T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}', mpqueue), name=f'Process #{i}')
-                    #T = threading.Thread(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False,f'Thread #{i}'), name=f'Thread #{i}')
-                    T.qu = mpqueue
-                    T.node = cnf_set
-                    self.threads.append(T)
+                for n in range(0, threads_to_create):
+                    i = self.started_processes
+                    self.started_processes=self.started_processes + 1
 
-                for i in range(0, threads_to_create):
                     print(f"Creating process {i}")
-                    self.threads[i].start()
+                    cnf_set = squeue.pop()
+                    rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs(self.args)), name=f'Process #{i}', node=cnf_set)
+                    self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot))
 
-                i = 0
-                while self.threads:
-                    try:
-                        i = i % len(self.threads)
-                        process_is_satisfiable, process_nodes_children, process_solution = self.threads[i].qu.get(False)
-                        print()
-                        print(f"{self.threads[i].name} queue is retrieved.")
-                        self.threads[i].join()
-                        print()
-                        print(f"{self.threads[i].name} finished!")
+                    # mpqueue = mp.Queue(1024*1024*1024)
+                    # T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}', mpqueue), name=f'Process #{i}')
+                    # T.qu = mpqueue
+                    # T.node = cnf_set
+                    # self.threads.append(T)
 
-                        # in case the child process exited before it solve the problem, and get the main process to solve it
-                        if process_nodes_children == None and not process_solution:
-                            squeue.insert(self.threads[i].node)
-                        else:
-                            #nodes_children.update(process_nodes_children)
-                            for k in process_nodes_children.keys():
-                                if nodes_children.get(k, False) and len(nodes_children[k]) >= len(process_nodes_children[k]):
-                                    continue
-                                nodes_children[k] = process_nodes_children[k]
 
-                            if process_is_satisfiable != None:
-                                is_satisfiable |= process_is_satisfiable
+                while len(self.threads):
 
-                            #solution = process_solution
-                            if process_solution:
-                                solution = process_solution
-                                if self.args.exit_upon_solving:
-                                    print("Terminating all processes....")
-                                    for t in self.threads:
-                                        try:
-                                            t.terminate()
-                                            t.join()
-                                        except:
-                                            pass
-                                    break
+                    done_id, self.threads = ray.wait(self.threads)
+                    rps, process_is_satisfiable, process_nodes_children, process_solution = ray.get(done_id[0])
 
-                            self.threads.pop(i)
+                    print()
+                    print(f"{rps.name} queue is retrieved.")
+                    print()
+                    print(f"{rps.name} finished!")
 
-                    except queue.Empty:
-                        time.sleep(1)
-                        i += 1
+                    # in case the child process exited before it solve the problem, and get the main process to solve it
+                    if process_nodes_children == None and not process_solution:
+                        squeue.insert(rps.node)
+                    else:
+                        for k in process_nodes_children.keys():
+                            if nodes_children.get(k, False) and len(nodes_children[k]) >= len(process_nodes_children[k]):
+                                continue
+                            nodes_children[k] = process_nodes_children[k]
+
+                        if process_is_satisfiable != None:
+                            is_satisfiable |= process_is_satisfiable
+
+                        #solution = process_solution
+                        if process_solution:
+                            solution = process_solution
+                            if self.args.exit_upon_solving:
+                                print("Terminating all processes....")
+                                # for t in self.threads:
+                                #    try:
+                                #    except:
+                                #        pass
+                                break
+
+                    # check if more work is available
+                    while (len(self.threads) < self.max_threads) and (squeue.size() > 0):
+                        i = self.started_processes
+                        self.started_processes=self.started_processes + 1
+
+                        print(f"Creating process {i}")
+                        cnf_set = squeue.pop()
+                        rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs(self.args)), name=f'Process #{i}', node=cnf_set)
+                        self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot))
+
 
                 print()
                 print("All processes are completed!")
 
 
-        if qu:
-            qu.put((is_satisfiable, nodes_children, solution), False)
+        if is_sub_process:
             print()
             print(f"Process {name} data is sent to the main process")
+            print(f"Process {name} is completed!")
+            return is_satisfiable, nodes_children, solution
         else:
             self.is_satisfiable = is_satisfiable
             self.nodes_children = nodes_children
             self.solution       = solution
-
-        print()
-        print(f"Process {name} is completed!")
+            print()
+            print(f"Process {name} is completed!")
 
 
 

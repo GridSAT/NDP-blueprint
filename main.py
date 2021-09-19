@@ -7,6 +7,9 @@ from PatternSolver import *
 from InputReader import InputReader
 import configs
 import traceback
+import ray
+
+ray.init(address='auto', ignore_reinit_error=True)
 
 # todo:
 # - Handle if input has [x, -x]. What I did now is to normalize the clause once it get read. However, this will not enable us to
