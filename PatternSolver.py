@@ -70,8 +70,8 @@ class RemotePatternSolver():
         self.name = name
         self.node = node
 
-    def process_nodes_queue(self, input_mode=None, dot=None):
-        return (self,) + self.pattern_solver.process_nodes_queue(self.node, input_mode, dot, generate_threads=False, name=self.name, is_sub_process=True)
+    def process_nodes_queue(self, input_mode=None, dot=None, break_on_squeue_size=0):
+        return (self,) + self.pattern_solver.process_nodes_queue(self.node, input_mode, dot, generate_threads=False, name=self.name, is_sub_process=True, break_on_squeue_size=break_on_squeue_size)
 
 
 class PatternSolverArgs:
@@ -143,7 +143,6 @@ class PatternSolver:
         elif self.args.threads > 1:
             self.max_threads = self.args.threads
         self.threads = []
-        self.warmup = 0
 
     def draw_graph(self, dot, outputfile):
         fg = open(outputfile, "w")
@@ -274,9 +273,8 @@ class PatternSolver:
         for red_id, redundant_times  in root_redundants.items():
             self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, red_id)
 
-    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", is_sub_process=False):
+    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", is_sub_process=False, break_on_squeue_size=0):
 
-        generate_threads_start_count = int(self.max_threads * 1.4)
         nodes_children = {}
         is_satisfiable = False
         solution = None
@@ -298,9 +296,7 @@ class PatternSolver:
                 return None, None, None
             return False
 
-        while not squeue.is_empty() and not (bool(solution) & self.args.exit_upon_solving):
-            if generate_threads:
-                print(squeue.size())
+        while not squeue.is_empty() and (not (is_sub_process and break_on_squeue_size > 0 and squeue.size() >= break_on_squeue_size)) and (not (bool(solution) & self.args.exit_upon_solving)):
 
             cnf_set = squeue.pop()
             logger.debug("Set #{0}".format(cnf_set.id))
@@ -404,11 +400,13 @@ class PatternSolver:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
 
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
-            if generate_threads and (squeue.size() >= generate_threads_start_count):
-                self.warmup = time.time()
-                generate_threads = False
+            if generate_threads and (squeue.size() >= 16):
+
+                if squeue.size() > 4 * self.max_threads:
+                    generate_threads = False
+
                 print()
-                threads_to_create = self.max_threads
+                threads_to_create = squeue.size() if squeue.size() < self.max_threads else self.max_threads
 
                 for n in range(0, threads_to_create):
                     i = self.started_processes
@@ -417,7 +415,7 @@ class PatternSolver:
                     print(f"Creating process {i}")
                     cnf_set = squeue.pop()
                     rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs(self.args)), name=f'Process #{i}', node=cnf_set)
-                    self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot))
+                    self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot, break_on_squeue_size=(8 if generate_threads else 0)))
 
                     # mpqueue = mp.Queue(1024*1024*1024)
                     # T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}', mpqueue), name=f'Process #{i}')
@@ -429,7 +427,7 @@ class PatternSolver:
                 while len(self.threads):
 
                     done_id, self.threads = ray.wait(self.threads)
-                    rps, process_is_satisfiable, process_nodes_children, process_solution = ray.get(done_id[0])
+                    rps, process_squeue, process_is_satisfiable, process_nodes_children, process_solution = ray.get(done_id[0])
 
                     print()
                     print(f"{rps.name} queue is retrieved.")
@@ -459,15 +457,20 @@ class PatternSolver:
                                 #        pass
                                 break
 
-                    # check if more work is available
-                    while (len(self.threads) < self.max_threads) and (squeue.size() > 0):
-                        i = self.started_processes
-                        self.started_processes=self.started_processes + 1
+                    # check for not ready sub queue
+                    while (process_squeue.size() > 0):
+                        squeue.insert(process_squeue.pop())
 
-                        print(f"Creating process {i}")
-                        cnf_set = squeue.pop()
-                        rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs(self.args)), name=f'Process #{i}', node=cnf_set)
-                        self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot))
+                    # when no more thread should be generate, check and run if more work is available
+                    if not generate_threads:
+                        while (len(self.threads) < self.max_threads) and (squeue.size() > 0):
+                            i = self.started_processes
+                            self.started_processes=self.started_processes + 1
+
+                            print(f"Creating process {i}")
+                            cnf_set = squeue.pop()
+                            rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs(self.args)), name=f'Process #{i}', node=cnf_set)
+                            self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot))
 
 
                 print()
@@ -478,7 +481,7 @@ class PatternSolver:
             print()
             print(f"Process {name} data is sent to the main process")
             print(f"Process {name} is completed!")
-            return is_satisfiable, nodes_children, solution
+            return squeue, is_satisfiable, nodes_children, solution
         else:
             self.is_satisfiable = is_satisfiable
             self.nodes_children = nodes_children
@@ -548,7 +551,6 @@ class PatternSolver:
             if self.max_threads:
                 print("Multi process execution is finished!")
                 print("Completed in %.3f seconds" % (time.time() - start_time))
-                print("Warmup time in %.3f seconds" % (self.warmup - start_time))
 
             ### Solving the set is done, let's get the number of unique and redundant nodes
             if self.args.verbos:
