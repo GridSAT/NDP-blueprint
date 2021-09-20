@@ -143,6 +143,7 @@ class PatternSolver:
         elif self.args.threads > 1:
             self.max_threads = self.args.threads
         self.threads = []
+        self.warmup = 0
 
     def draw_graph(self, dot, outputfile):
         fg = open(outputfile, "w")
@@ -275,6 +276,7 @@ class PatternSolver:
 
     def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", is_sub_process=False):
 
+        generate_threads_start_count = int(self.max_threads * 1.4)
         nodes_children = {}
         is_satisfiable = False
         solution = None
@@ -297,6 +299,9 @@ class PatternSolver:
             return False
 
         while not squeue.is_empty() and not (bool(solution) & self.args.exit_upon_solving):
+            if generate_threads:
+                print(squeue.size())
+
             cnf_set = squeue.pop()
             logger.debug("Set #{0}".format(cnf_set.id))
 
@@ -399,7 +404,8 @@ class PatternSolver:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
 
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
-            if generate_threads and (squeue.size() == 256):
+            if generate_threads and (squeue.size() >= generate_threads_start_count):
+                self.warmup = time.time()
                 generate_threads = False
                 print()
                 threads_to_create = self.max_threads
@@ -542,6 +548,7 @@ class PatternSolver:
             if self.max_threads:
                 print("Multi process execution is finished!")
                 print("Completed in %.3f seconds" % (time.time() - start_time))
+                print("Warmup time in %.3f seconds" % (self.warmup - start_time))
 
             ### Solving the set is done, let's get the number of unique and redundant nodes
             if self.args.verbos:
