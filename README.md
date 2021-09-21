@@ -7,7 +7,7 @@
 On ubuntu run as root
 
 ```bash
-apt install python3-pip libpq-dev
+apt install python3-pip libpq-dev sysstat
 ```
 
 ##### Create virtualenv
@@ -67,3 +67,23 @@ python3 main.py -v -d inputs/Multi11bit.txt -m lou -t 8
 ```
 
 The solver main process will connect automatically to the head node and use the workers as given.
+
+
+
+### Starter tools
+
+Some helpers to easily run the processes and environments.
+
+```bash
+# .bin/ray.sh
+sudo su - easyxps
+
+# .bin/ray-auto.sh
+sudo -u easyxps -i /bin/bash -i -c ray-auto.sh
+
+# .bin/node.sh
+ssh -i $HOME/.ssh/AWS.pem "node$1"
+
+# .bin/node-up.sh
+ssh -i $HOME/.ssh/AWS.pem "node$1" -t .bin/ray-auto.sh
+```
