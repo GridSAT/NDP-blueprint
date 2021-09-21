@@ -266,14 +266,8 @@ class PatternSolver:
 
         root_node_redundants = {}
 
-        if max_threads > 1:
-            split_count = ((math.trunc(len(self.nodes_children.keys()) / max_threads / 10000) + 1) * 10000)
-        else:
-            max_threads = 1
-            split_count = len(self.nodes_children.keys())
-
-        if split_count < 10000:
-            split_count = 10000
+        max_stats = 1 if max_threads < 2 else max_threads if max_threads < 12 else 12
+        split_count = 100000
 
         keys = []
         subkeys = []
@@ -287,7 +281,11 @@ class PatternSolver:
         if len(subkeys):
             keys.append(subkeys)
 
+        if self.args.verbos:
+            print("Generate Stats within ", len(keys), " processes each per ", split_count, " ids ...")
+
         threads = []
+        finished_stats = 0
 
         while len(keys) and (len(threads) < max_threads):
             rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs()))
@@ -315,6 +313,14 @@ class PatternSolver:
             while len(keys) and (len(threads) < max_threads):
                 rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs()))
                 threads.append(rps.do_get_node_subgraph_stats.remote(root_id, keys.pop(0), nodes_children))
+
+            finished_stats += 1
+
+            if self.args.verbos:
+                print("Finished Stats processes: ", finished_stats, end="\r")
+
+        if self.args.verbos:
+            print()
 
         return root_node_redundants
 
@@ -551,6 +557,7 @@ class PatternSolver:
     def solve_set(self, root_set):
 
         start_time = time.time()
+        eval_time = None
 
         logger.info(f"Solving problem ID: {self.problem_id}")
 
@@ -605,9 +612,11 @@ class PatternSolver:
             # main function to process the root node
             self.process_nodes_queue(root_set, input_mode, dot, bool(self.max_threads))
 
+            eval_time = time.time()
+
             if self.max_threads:
                 print("Multi process execution is finished!")
-                print("Completed in %.3f seconds" % (time.time() - start_time))
+                print("Completed in %.3f seconds" % (eval_time - start_time))
 
             ### Solving the set is done, let's get the number of unique and redundant nodes
             if self.args.verbos:
@@ -650,6 +659,7 @@ class PatternSolver:
         process = psutil.Process(os.getpid())
         memusage = process.memory_info().rss  # in bytes
         stats = 'Input set processed in %.3f seconds' % (time.time() - start_time)
+        stats += '\\n' + 'Computation in %.3f seconds' % (eval_time - start_time)
         stats += '\\n' + "Problem ID: {0}".format(self.problem_id)
         stats += '\\n' + "Solution mode: {0}".format(self.args.mode.upper())
         stats += '\\n' + "The input set is {0}".format(str_satisfiable)
