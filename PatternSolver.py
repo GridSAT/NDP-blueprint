@@ -12,6 +12,7 @@ import SuperQueue
 from Set import Set
 import traceback
 import psycopg2
+import math
 import ray
 
 
@@ -70,24 +71,27 @@ class RemotePatternSolver():
         self.name = name
         self.node = node
 
+    def do_get_node_subgraph_stats(self, root_id, node_ids, nodes_children):
+        return self.pattern_solver.do_get_node_subgraph_stats(root_id, node_ids, nodes_children)
+
     def process_nodes_queue(self, input_mode=None, dot=None, break_on_squeue_size=0):
         return (self,) + self.pattern_solver.process_nodes_queue(self.node, input_mode, dot, generate_threads=False, name=self.name, is_sub_process=True, break_on_squeue_size=break_on_squeue_size)
 
 
 class PatternSolverArgs:
-    def __init__(self, args):
-        self.exit_upon_solving = args.exit_upon_solving
-        self.mode = args.mode
-        self.no_stats = args.no_stats
-        self.quiet = args.quiet
-        self.threads = args.threads
-        self.use_global_db = args.use_global_db
-        self.use_runtime_db = args.use_runtime_db
-        self.output_graph_file = args.output_graph_file
-        self.output_solution_file = args.output_solution_file
-        self.verbos = args.verbos
-        self.verify = args.verify
-        self.very_verbos = args.very_verbos
+    def __init__(self, args=None):
+        self.exit_upon_solving = args.exit_upon_solving if args else False
+        self.mode = args.mode if args else None
+        self.no_stats = args.no_stats if args else True
+        self.quiet = args.quiet if args else True
+        self.threads = args.threads if args else 0
+        self.use_global_db = args.use_global_db if args else False
+        self.use_runtime_db = args.use_runtime_db if args else False
+        self.output_graph_file = args.output_graph_file if args else None
+        self.output_solution_file = args.output_solution_file if args else None
+        self.verbos = args.verbos if args else False
+        self.verify = args.verify if args else False
+        self.very_verbos = args.very_verbos if args else False
 
 
 class PatternSolver:
@@ -245,19 +249,72 @@ class PatternSolver:
             self.get_node_subgraph_stats(child_id, nodes_children, node_descendants, node_redundants)
 
 
-    def construct_graph_stats(self, root_id, nodes_children):
-        root_node_redundants = {}
+    def do_get_node_subgraph_stats(self, root_id, node_ids, nodes_children):
 
-        for node_id in self.nodes_children.keys():
+        result = []
+
+        for node_id in node_ids:
             node_descendants = {}
             node_redundants = defaultdict(int)
             self.get_node_subgraph_stats(node_id, nodes_children, node_descendants, node_redundants)
-            self.nodes_stats[node_id][UNIQUE_COUNT]     = len(node_descendants)
-            self.nodes_stats[node_id][REDUNDANT_COUNT]  = len(node_redundants)
-            self.nodes_stats[node_id][REDUNDANT_HITS]   = sum(node_redundants.values())
+            result.append( (node_id, len(node_descendants), len(node_redundants), sum(node_redundants.values()), (node_redundants if node_id == root_id else None)) )
 
-            if node_id == root_id:
-                root_node_redundants = node_redundants
+        return result
+
+
+    def construct_graph_stats(self, root_id, nodes_children, max_threads):
+
+        root_node_redundants = {}
+
+        if max_threads > 1:
+            split_count = ((math.trunc(len(self.nodes_children.keys()) / max_threads / 10000) + 1) * 10000)
+        else:
+            max_threads = 1
+            split_count = len(self.nodes_children.keys())
+
+        if split_count < 10000:
+            split_count = 10000
+
+        keys = []
+        subkeys = []
+
+        for node_id in self.nodes_children.keys():
+            subkeys.append(node_id)
+            if len(subkeys) >= split_count:
+                keys.append(subkeys)
+                subkeys = []
+
+        if len(subkeys):
+            keys.append(subkeys)
+
+        threads = []
+
+        while len(keys) and (len(threads) < max_threads):
+            rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs()))
+            threads.append(rps.do_get_node_subgraph_stats.remote(root_id, keys.pop(0), nodes_children))
+
+        while len(threads):
+            done_id, threads = ray.wait(threads)
+            results = ray.get(done_id[0])
+
+            for result in results:
+                node_id, len_node_descendants, len_node_redundants, sum_node_redundants_values, res_root_node_redundants = result
+
+                if not self.nodes_stats[node_id]:
+                    self.nodes_stats[node_id][UNIQUE_COUNT]     = 0
+                    self.nodes_stats[node_id][REDUNDANT_COUNT]  = 0
+                    self.nodes_stats[node_id][REDUNDANT_HITS]   = 0
+
+                self.nodes_stats[node_id][UNIQUE_COUNT]     += len_node_descendants
+                self.nodes_stats[node_id][REDUNDANT_COUNT]  += len_node_redundants
+                self.nodes_stats[node_id][REDUNDANT_HITS]   += sum_node_redundants_values
+
+                if res_root_node_redundants is not None:
+                    root_node_redundants = res_root_node_redundants
+
+            while len(keys) and (len(threads) < max_threads):
+                rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs()))
+                threads.append(rps.do_get_node_subgraph_stats.remote(root_id, keys.pop(0), nodes_children))
 
         return root_node_redundants
 
@@ -400,9 +457,9 @@ class PatternSolver:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
 
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
-            if generate_threads and (squeue.size() >= 16):
+            if generate_threads and (squeue.size() >= 32):
 
-                if squeue.size() > 4 * self.max_threads:
+                if squeue.size() > 1.5 * self.max_threads:
                     generate_threads = False
 
                 print()
@@ -561,7 +618,7 @@ class PatternSolver:
                 if self.args.verbos:
                     print("=== Getting statistics of all subgraphs...")
 
-                root_redundants = self.construct_graph_stats(root_set.id, self.nodes_children)
+                root_redundants = self.construct_graph_stats(root_set.id, self.nodes_children, self.max_threads)
 
                 self.uniques = self.nodes_stats[root_set.id][UNIQUE_COUNT]
                 self.redundants = self.nodes_stats[root_set.id][REDUNDANT_COUNT]
