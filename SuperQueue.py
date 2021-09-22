@@ -1,6 +1,6 @@
 # SuperQueue.py
 #
-# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# Copyright © 2016 - 2021 EasyXPS, Inc. <info@easyxps.com>
 # All rights reserved.
 # Simply Efficient. is a trademark of EasyXPS, Inc.
 #
