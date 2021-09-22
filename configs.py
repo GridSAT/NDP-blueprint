@@ -1,3 +1,10 @@
+# configs.py
+#
+# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# All rights reserved.
+# Simply Efficient. is a trademark of EasyXPS, Inc.
+#
+
 import logging
 import uuid
 import inspect, sys

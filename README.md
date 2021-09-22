@@ -1,3 +1,12 @@
+<!--
+# README.md
+#
+# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# All rights reserved.
+# Simply Efficient. is a trademark of EasyXPS, Inc.
+#
+-->
+
 # NasserSatSolver-Python
 
 ### Installation
@@ -86,4 +95,7 @@ ssh -i $HOME/.ssh/AWS.pem "node$1"
 
 # .bin/node-up.sh
 ssh -i $HOME/.ssh/AWS.pem "node$1" -t .bin/ray-auto.sh
+
+# run and log unbuffered (need expect-dev installed)
+CORES="0001"; BITS="14"; ( echo "START: `date`"; echo ""; unbuffer python3 main.py -v -d inputs/Multi"$BITS"bit.txt -m lou -t $CORES 2>/dev/null ; echo "" ; echo "ENDE: `date`" ) | tee logs/$(date "+%Y-%m-%d")_Multi"$BITS"bit-$CORES-Cores.txt
 ```

@@ -1,3 +1,10 @@
+# SuperQueue.py
+#
+# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# All rights reserved.
+# Simply Efficient. is a trademark of EasyXPS, Inc.
+#
+
 import time
 import Set
 from DbAdaptor import DbAdapter

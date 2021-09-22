@@ -1,3 +1,10 @@
+# delete_gdb.py
+#
+# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# All rights reserved.
+# Simply Efficient. is a trademark of EasyXPS, Inc.
+#
+
 from configs import *
 from DbAdaptor import DbAdapter
 

@@ -1,0 +1,13 @@
+# Things left to do
+
+1. Rewrite the implementation with [Cement](https://github.com/datafolklabs/cement) framework
+2. Use numpy and pandas to speed up a lot of stats and math operations
+3. Use sorting algorithm from Golang implementation
+98. Prepare tests
+99. Cleanup code and use Codestyle
+
+
+# Things to checkout
+
+1. Multithreading for statistics
+2. Using GPUs [Running Python script on GPU](https://www.geeksforgeeks.org/running-python-script-on-gpu/)

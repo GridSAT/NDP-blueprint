@@ -1,3 +1,10 @@
+# DbAdaptor.py
+#
+# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# All rights reserved.
+# Simply Efficient. is a trademark of EasyXPS, Inc.
+#
+
 import time
 import psycopg2
 from configs import *
@@ -293,4 +300,3 @@ class DbAdapter:
             logger.error("DB Error: " + str(error))
 
         return success
-

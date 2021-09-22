@@ -1,3 +1,10 @@
+# main.py
+#
+# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# All rights reserved.
+# Simply Efficient. is a trademark of EasyXPS, Inc.
+#
+
 import os,sys
 import time
 import argparse, textwrap
@@ -207,4 +214,3 @@ if __name__ == "__main__":
     Main(args)
 
     print('script took %.3f seconds' % (time.time() - start_time))
-

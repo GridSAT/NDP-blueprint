@@ -1,4 +1,10 @@
-# This is InputReader class
+# InputReader.py
+#
+# Copyright © 2016 EasyXPS, Inc. <info@easyxps.com>
+# All rights reserved.
+# Simply Efficient. is a trademark of EasyXPS, Inc.
+#
+
 # SLF: Single Line Format, is where the input CNF in represented in one line only in the form:
 #    a | b | c & d | -e | f & ...
 # DIMAC: DIMACS (the Center for Discrete Mathematics and Theoretical Computer Science) at Rutgers university format
@@ -138,6 +144,3 @@ class InputReader:
 
         else:
             raise Exception("Unknown input source")
-
-
-
