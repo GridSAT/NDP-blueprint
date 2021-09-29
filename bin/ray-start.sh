@@ -18,7 +18,12 @@ if [[ "$3" != "" ]]
 then
   CPUS=$3
 else
-  CPUS=$(( $(lscpu --online --parse=CPU | egrep -v '^#' | wc -l) - 4 ))
+  if if [[ "$OSTYPE" == "darwin"* ]]
+  then
+    CPUS=$(( sysctl -a | grep 'cpu.thread_count' | sed -e 's/[^0-9]//g' ))
+  else
+    CPUS=$(( $(lscpu --online --parse=CPU | egrep -v '^#' | wc -l) - 4 ))
+  fi
 fi
 
 export RAY_DISABLE_IMPORT_WARNING=1
