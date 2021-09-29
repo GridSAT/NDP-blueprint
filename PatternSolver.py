@@ -324,7 +324,7 @@ class PatternSolver:
             finished_stats += 1
 
             if self.args.verbos:
-                print("Finished Stats processes: ", finished_stats, end="\r")
+                print("Finished Stats processes: ", finished_stats)
 
         if self.args.verbos:
             print()
@@ -673,10 +673,13 @@ class PatternSolver:
         if self.is_satisfiable:
             stats += '\\n' + "The solution is {0}".format(self.solution)
         if not self.args.no_stats:
+            stats += '\\n' + "Number of nodes children: {0}".format(len(self.nodes_children))
             stats += '\\n' + "Number of unique nodes: {0}".format(self.uniques)
             stats += '\\n' + "Number of redundant subtrees: {0}".format(self.redundants)
             stats += '\\n' + "Number of redundant hits: {0}".format(self.redundant_hits)
             stats += '\\n' + "Number of nodes found in gdb: {0}".format(self.nodes_found_in_gdb)
+        else:
+            stats += '\\n' + "Number of nodes children: {0}".format(len(self.nodes_children))
         stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 
         # draw graph
