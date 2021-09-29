@@ -469,6 +469,9 @@ class PatternSolver:
             if False and self.args.verbos:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
 
+            if self.args.verbos and not is_sub_process:
+                print(f"Process '{name}': Progress nodes so far: {len(nodes_children)}...", end='\r')
+
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
             if generate_threads and (squeue.size() >= 32):
 
@@ -526,6 +529,9 @@ class PatternSolver:
                                 #    except:
                                 #        pass
                                 break
+
+                    if self.args.verbos and not is_sub_process:
+                        print(f"Process '{name}': Progress nodes so far: {len(nodes_children)}...")
 
                     # check for not ready sub queue
                     while (process_squeue.size() > 0):
