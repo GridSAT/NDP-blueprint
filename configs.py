@@ -17,11 +17,11 @@ INPUT_SLF = 2
 INPUT_DIMACS = 3
 
 # database
-DB_HOST="localhost"
+DB_HOST="node1"
 DB_PORT=5432
-DB_NAME="patternsolvers"
-DB_USER="mesaleh"
-DB_PASSWORD="951753saleh"
+DB_NAME="xps"
+DB_USER="xps"
+DB_PASSWORD="xps"
 GLOBAL_SETS_TABLE_PREFIX = "globalsetstable_"
 GLOBAL_SETS_TABLE = GLOBAL_SETS_TABLE_PREFIX
 
