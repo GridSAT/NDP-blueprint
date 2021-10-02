@@ -121,6 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("-rdb", "--use-runtime-db", help="Use database for set lookup in table established only for the current cnf", action="store_true")
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
     parser.add_argument("-gnm", "--gdb-no-mem", help="Don't load hashes from global DB into memory. Use this only if gdb gets huge and doesn't fit in memory. (slower)", action="store_true")
+    parser.add_argument("-z", "--sort-by-size", help="Always sort clauses by size in ascending order.", action="store_true")
     parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
     [LO condition is where all variables appear in the ascending order]
     flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)

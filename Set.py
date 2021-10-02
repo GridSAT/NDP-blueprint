@@ -237,9 +237,9 @@ class Set:
 
 
     # convert to L.O. condition
-    def to_lo_condition(self, mode=MODE_LO):
+    def to_lo_condition(self, mode=MODE_LO, sort_by_size=False):
 
-        if mode == MODE_FLOP:
+        if mode == MODE_FLOP or sort_by_size:
             # bring unit clauses to the front of the set
             # self.place_unit_clauses_first()
             self.sort_clauses_by_length()

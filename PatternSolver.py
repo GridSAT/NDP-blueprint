@@ -81,8 +81,8 @@ class RemotePatternSolver():
     def do_get_node_subgraph_stats(self, root_id, node_ids, nodes_children):
         return self.pattern_solver.do_get_node_subgraph_stats(root_id, node_ids, nodes_children)
 
-    def process_nodes_queue(self, input_mode=None, dot=None, break_on_squeue_size=0):
-        return (self,) + self.pattern_solver.process_nodes_queue(self.node, input_mode, dot, generate_threads=False, name=self.name, is_sub_process=True, break_on_squeue_size=break_on_squeue_size)
+    def process_nodes_queue(self, input_mode=None, dot=None, sort_by_size=False, break_on_squeue_size=0):
+        return (self,) + self.pattern_solver.process_nodes_queue(self.node, input_mode, dot, generate_threads=False, name=self.name, is_sub_process=True, sort_by_size=sort_by_size, break_on_squeue_size=break_on_squeue_size)
 
 
 class PatternSolverArgs:
@@ -99,6 +99,7 @@ class PatternSolverArgs:
         self.verbos = args.verbos if args else False
         self.verify = args.verify if args else False
         self.very_verbos = args.very_verbos if args else False
+        self.sort_by_size = args.sort_by_size if args else False
 
 
 class PatternSolver:
@@ -348,7 +349,7 @@ class PatternSolver:
         for red_id, redundant_times  in root_redundants.items():
             self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, red_id)
 
-    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", is_sub_process=False, break_on_squeue_size=0):
+    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", is_sub_process=False, sort_by_size=False, break_on_squeue_size=0):
 
         nodes_children = {}
         is_satisfiable = False
@@ -414,7 +415,7 @@ class PatternSolver:
                 else:
                     if not children_pulled_from_gdb:
                         # TIME CONSUMER 1+ sec
-                        child.to_lo_condition((MODE_LOU if generate_threads or (break_on_squeue_size > 0) else input_mode))
+                        child.to_lo_condition((MODE_LOU if generate_threads or (break_on_squeue_size > 0) else input_mode), sort_by_size)
                         # TIME CONSUMER 0.1 sec
                         child_hash = child.get_hash(force_recalculate=True)
 
@@ -497,7 +498,7 @@ class PatternSolver:
                     print(f"Creating process {i}")
                     cnf_set = squeue.pop()
                     rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs(self.args)), name=f'Process #{i}', node=cnf_set)
-                    self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot, break_on_squeue_size=(8 if generate_threads else 0)))
+                    self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot, sort_by_size=sort_by_size, break_on_squeue_size=(8 if generate_threads else 0)))
 
                     # mpqueue = mp.Queue(1024*1024*1024)
                     # T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}', mpqueue), name=f'Process #{i}')
@@ -555,7 +556,7 @@ class PatternSolver:
                             print(f"Creating process {i}")
                             cnf_set = squeue.pop()
                             rps = RemotePatternSolver.remote(PatternSolver(args=PatternSolverArgs(self.args)), name=f'Process #{i}', node=cnf_set)
-                            self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot))
+                            self.threads.append(rps.process_nodes_queue.remote(input_mode=input_mode, dot=dot, sort_by_size=sort_by_size))
 
 
                 print()
@@ -595,7 +596,7 @@ class PatternSolver:
         vars = root_set.get_variables()
         root_set.original_values = dict(zip(vars, vars))
 
-        root_set.to_lo_condition(self.args.mode)
+        root_set.to_lo_condition(self.args.mode, self.args.sort_by_size)
         setafterhash = root_set.get_hash(force_recalculate=True)
         root_set.id = setafterhash
 
@@ -632,7 +633,7 @@ class PatternSolver:
                 print(f"Number of forked process = {self.max_threads}")
 
             # main function to process the root node
-            self.process_nodes_queue(root_set, input_mode, dot, bool(self.max_threads))
+            self.process_nodes_queue(root_set, input_mode, dot, bool(self.max_threads), sort_by_size=self.args.sort_by_size)
 
             eval_time = time.time()
 
