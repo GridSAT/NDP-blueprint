@@ -122,6 +122,7 @@ if __name__ == "__main__":
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
     parser.add_argument("-gnm", "--gdb-no-mem", help="Don't load hashes from global DB into memory. Use this only if gdb gets huge and doesn't fit in memory. (slower)", action="store_true")
     parser.add_argument("-z", "--sort-by-size", help="Always sort clauses by size in ascending order.", action="store_true")
+    parser.add_argument("-sm", "--start-mode", help="Use mode while prepare sub-processes (options as -m)", choices=['flo', 'flop', 'lo', 'lou', 'normal'], default=None)
     parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
     [LO condition is where all variables appear in the ascending order]
     flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)
@@ -211,6 +212,9 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
     elif args.quiet:
         logger.setLevel(logging.CRITICAL)
+
+    if args.start_mode is None:
+        args.start_mode = args.mode
 
     Main(args)
 

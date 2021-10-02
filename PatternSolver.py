@@ -89,6 +89,7 @@ class PatternSolverArgs:
     def __init__(self, args=None):
         self.exit_upon_solving = args.exit_upon_solving if args else False
         self.mode = args.mode if args else None
+        self.start_mode = args.start_mode if args else None
         self.no_stats = args.no_stats if args else True
         self.quiet = args.quiet if args else True
         self.threads = args.threads if args else 0
@@ -415,7 +416,7 @@ class PatternSolver:
                 else:
                     if not children_pulled_from_gdb:
                         # TIME CONSUMER 1+ sec
-                        child.to_lo_condition((MODE_LOU if generate_threads or (break_on_squeue_size > 0) else input_mode), sort_by_size)
+                        child.to_lo_condition((self.args.start_mode if generate_threads or (break_on_squeue_size > 0) else input_mode), sort_by_size)
                         # TIME CONSUMER 0.1 sec
                         child_hash = child.get_hash(force_recalculate=True)
 
