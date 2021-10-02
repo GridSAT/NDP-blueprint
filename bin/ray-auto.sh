@@ -25,7 +25,7 @@ ray-start.sh $1 $ADDRESS $CPUS | grep 'Ray runtime started.'
 
 echo "Running until Ctrl-C"
 
-bash -c sysinfo.sh $CPUS
+bash -c "sysinfo.sh $CPUS"
 
 echo ""
 
