@@ -18,7 +18,7 @@ if [[ "$3" != "" ]]
 then
   CPUS=$3
 else
-  if if [[ "$OSTYPE" == "darwin"* ]]
+  if [[ "$OSTYPE" == "darwin"* ]]
   then
     CPUS=$(( sysctl -a | grep 'cpu.thread_count' | sed -e 's/[^0-9]//g' ))
   else
