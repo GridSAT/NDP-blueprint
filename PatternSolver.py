@@ -216,6 +216,11 @@ class PatternSolver:
         return self.solved_sets.get(set_hash, False)
 
     def save_parent_children(self, cnf_set, child1_hash, child2_hash, db_adaptor=None):
+
+        # Don't waste time
+        if not self.args.use_global_db:
+            return SUCCESS
+
         if db_adaptor == None:
             db_adaptor = self.db_adaptor
 
@@ -384,10 +389,12 @@ class PatternSolver:
                     self.nodes_found_in_gdb += 1
                     children_pulled_from_gdb = True
 
+            # TIME CONSUMER 1 sec
             if not children_pulled_from_gdb:
                 (s1, s2) = cnf_set.evaluate()
 
             for child in (s1, s2):
+                # TIME CONSUMER 0.1 sec
                 child_str_before = child.to_string()
 
                 # check if the set is already evaluated to boolean value
@@ -406,7 +413,9 @@ class PatternSolver:
 
                 else:
                     if not children_pulled_from_gdb:
-                        child.to_lo_condition(input_mode)
+                        # TIME CONSUMER 1+ sec
+                        child.to_lo_condition((MODE_LOU if generate_threads or (break_on_squeue_size > 0) else input_mode))
+                        # TIME CONSUMER 0.1 sec
                         child_hash = child.get_hash(force_recalculate=True)
 
                     # if chid pulled from gdb, no need to recompute the hash to save time
@@ -469,8 +478,8 @@ class PatternSolver:
             if False and self.args.verbos:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}%, nodes so far: {self.uniques:,} uniques and {self.redundant_hits:,} redundant hits...", end='\r')
 
-            if self.args.verbos and not is_sub_process:
-                print(f"Process '{name}': Progress nodes so far: {len(nodes_children)}...", end='\r')
+            if self.args.verbos and (len(nodes_children) % 20 == 0): # and not is_sub_process:
+                print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}% | nodes: {len(nodes_children)} | squeue: {squeue.size()} | uniques: {self.uniques:,} | redunt: {self.redundant_hits:,}...", end='\r')
 
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
             if generate_threads and (squeue.size() >= 32):
@@ -530,12 +539,12 @@ class PatternSolver:
                                 #        pass
                                 break
 
-                    if self.args.verbos and not is_sub_process:
-                        print(f"Process '{name}': Progress nodes so far: {len(nodes_children)}...")
-
                     # check for not ready sub queue
                     while (process_squeue.size() > 0):
                         squeue.insert(process_squeue.pop())
+
+                    if self.args.verbos and not is_sub_process:
+                        print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}% | nodes: {len(nodes_children)} | squeue: {squeue.size()} | uniques: {self.uniques:,} | redunt: {self.redundant_hits:,}...", end='\r')
 
                     # when no more thread should be generate, check and run if more work is available
                     if not generate_threads:
