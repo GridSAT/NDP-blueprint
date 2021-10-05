@@ -20,6 +20,7 @@ from ordered_set import OrderedSet
 
 class SuperQueue:
 
+    db = None
     use_runtime_db = False
 
     def __init__(self, unique_queue=False, use_runtime_db=False, problem_id=PROBLEM_ID):
@@ -41,7 +42,7 @@ class SuperQueue:
 
     def __del__(self):
         #drop table
-        if self.use_runtime_db:
+        if self.use_runtime_db and self.db is not None:
             self.db.rtq_cleanup(self.table_name)
 
     def insert(self, item):
@@ -91,3 +92,10 @@ class SuperQueue:
 
     def is_empty(self):
         return not bool(self.size())
+
+    def relink_db(self):
+        if self.use_runtime_db:
+            self.db = DbAdapter()
+
+    def unlink_db(self):
+        self.db = None
