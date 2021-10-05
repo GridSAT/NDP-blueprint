@@ -472,7 +472,7 @@ class PatternSolver:
                 print(f"Process '{name}': Progress {round((1-len(cnf_set.clauses)/starting_len)*100)}% | nodes: {len(nodes_children)} | squeue: {squeue.size()} | uniques: {self.uniques:,} | redunt: {self.redundant_hits:,}...", end='\r')
 
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
-            if generate_threads and (squeue.size() >= 32):
+            if generate_threads and (squeue.size() >= (self.max_threads if self.max_threads < 32 else 32)):
 
                 if squeue.size() > 1.5 * self.max_threads:
                     generate_threads = False
