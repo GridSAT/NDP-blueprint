@@ -506,6 +506,9 @@ class PatternSolver:
                     print()
                     print(f"{rps.name} finished!")
 
+                    # Return to db after serialization
+                    process_squeue.relink_db()
+
                     # in case the child process exited before it solve the problem, and get the main process to solve it
                     if process_nodes_children == None and not process_solution:
                         squeue.insert(rps.node)
@@ -556,6 +559,9 @@ class PatternSolver:
             print()
             print(f"Process {name} data is sent to the main process")
             print(f"Process {name} is completed!")
+            # remove the DBAdapter() while not serializable
+            squeue.unlink_db()
+            # return serializable values
             return squeue, is_satisfiable, nodes_children, solution
         else:
             self.is_satisfiable = is_satisfiable
