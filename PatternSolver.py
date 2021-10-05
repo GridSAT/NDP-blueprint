@@ -111,7 +111,7 @@ class PatternSolver:
     solved_sets = {}                        # stores solved sets pulled from global db
     graph = {}                              # stores the nodes as we solve them
     args = None
-    db_adaptor = None
+    use_db_adaptor = False
     problem_id = None
     use_runtime_db = False
     solution = None
@@ -127,7 +127,7 @@ class PatternSolver:
             self.use_runtime_db = True
 
         if args.use_runtime_db or args.use_global_db:
-            self.db_adaptor = DbAdapter()
+            self.use_db_adaptor = True
 
         if args.mode:
             self.global_table_name = GLOBAL_SETS_TABLE_PREFIX + args.mode.lower()
@@ -162,20 +162,17 @@ class PatternSolver:
         fg.write(dot.source)
         fg.close()
 
-    def load_set_records(self, num_clauses):
+    def load_set_records(self, num_clauses, db_adaptor):
             # load solved hashes
-            solve_hashes = self.db_adaptor.gs_load_solved_sets(self.global_table_name, num_clauses)
+            solve_hashes = db_adaptor.gs_load_solved_sets(self.global_table_name, num_clauses)
             self.solved_sets = {el[0]:[el[1], el[2]] for el in solve_hashes}
             # load unsolved hashes
-            unsolve_hashes = self.db_adaptor.gs_load_unsolved_sets(self.global_table_name, num_clauses)
+            unsolve_hashes = db_adaptor.gs_load_unsolved_sets(self.global_table_name, num_clauses)
             self.seen_sets = {el:1 for el in unsolve_hashes}
             # combine solved and unsolved in seen_sets map
             self.seen_sets.update({el:1 for el in self.solved_sets.keys()})
 
-    def get_children_from_gdb(self, set_hash, db_adaptor=None):
-        if db_adaptor == None:
-            db_adaptor = self.db_adaptor
-
+    def get_children_from_gdb(self, set_hash, db_adaptor):
         result = ()
         children = db_adaptor.gs_get_children(self.global_table_name, set_hash)
         for child_hash in children:
@@ -203,28 +200,21 @@ class PatternSolver:
     def is_in_graph(self, set_hash):
         return (self.nodes_children.get(set_hash, False) != False)
 
-    def is_set_in_gdb(self, set_hash, db_adaptor=None):
-        if db_adaptor == None:
-            db_adaptor = self.db_adaptor
+    def is_set_in_gdb(self, set_hash, db_adaptor):
         if self.args.gdb_no_mem:
             return db_adaptor.gs_does_hash_exist(self.global_table_name, set_hash)
         return self.seen_sets.get(set_hash, False)
 
-    def is_set_solved(self, set_hash, db_adaptor=None):
-        if db_adaptor == None:
-            db_adaptor = self.db_adaptor
+    def is_set_solved(self, set_hash, db_adaptor):
         if self.args.gdb_no_mem:
             return db_adaptor.gs_is_hash_solved(self.global_table_name, set_hash)
         return self.solved_sets.get(set_hash, False)
 
-    def save_parent_children(self, cnf_set, child1_hash, child2_hash, db_adaptor=None):
+    def save_parent_children(self, cnf_set, child1_hash, child2_hash, db_adaptor):
 
         # Don't waste time
         if not self.args.use_global_db:
             return SUCCESS
-
-        if db_adaptor == None:
-            db_adaptor = self.db_adaptor
 
         cnf_hash = cnf_set.get_hash()
         # save to the graph. The only case where child hash wouldn't be in the graph is when it's for a leaf (true or false)
@@ -338,17 +328,17 @@ class PatternSolver:
 
         return root_node_redundants
 
-    def save_in_global_db(self, root_redundants):
+    def save_in_global_db(self, root_redundants, db_adaptor):
 
         for node_id in self.nodes_stats.keys():
             unique_nodes    = self.nodes_stats[node_id][UNIQUE_COUNT]
             redundant_nodes = self.nodes_stats[node_id][REDUNDANT_COUNT]
             redundant_hits  = self.nodes_stats[node_id][REDUNDANT_HITS]
-            self.db_adaptor.gs_update_count(self.global_table_name, unique_nodes, redundant_nodes, redundant_hits, node_id)
+            db_adaptor.gs_update_count(self.global_table_name, unique_nodes, redundant_nodes, redundant_hits, node_id)
 
         # saving redundants hits for redundant nodes
         for red_id, redundant_times  in root_redundants.items():
-            self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, red_id)
+            db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, red_id)
 
     def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", is_sub_process=False, sort_by_size=False, break_on_squeue_size=0):
 
@@ -357,10 +347,8 @@ class PatternSolver:
         solution = None
         starting_len = len(cnf_set.clauses)
 
-        db_adaptor = self.db_adaptor
+        db_adaptor = DbAdapter() if self.use_db_adaptor else None
         try:
-            if self.args.use_runtime_db or self.args.use_global_db:
-                db_adaptor = DbAdapter()
             squeue = SuperQueue.SuperQueue(use_runtime_db=self.use_runtime_db, problem_id=cnf_set.get_hash().hex())
             squeue.insert(cnf_set)
             nodes_children[cnf_set.id] = []
@@ -607,15 +595,18 @@ class PatternSolver:
             input_mode = MODE_LOU
 
         self.uniques += 1
+
+        db_adaptor = DbAdapter() if self.use_db_adaptor else None
+
         # use global sets table
         if self.args.use_global_db:
             # create the table if not exist
-            self.db_adaptor.gs_create_table(self.global_table_name)
+            db_adaptor.gs_create_table(self.global_table_name)
             if not self.args.gdb_no_mem:
-                self.load_set_records(len(root_set.clauses))
+                self.load_set_records(len(root_set.clauses), db_adaptor)
 
         # check if we have processed the CNF before
-        if not self.is_set_solved(setafterhash):
+        if not self.is_set_solved(setafterhash, db_adaptor):
             if self.args.output_graph_file:
                 setafter = root_set.to_string()
                 dot.node(setafterhash.hex(), setbefore + "\\n" + setafter, color='black')
@@ -664,7 +655,7 @@ class PatternSolver:
                     if self.args.verbos:
                         print("=== Saving the final result in the global DB...")
 
-                    self.save_in_global_db(root_redundants)
+                    self.save_in_global_db(root_redundants, db_adaptor)
 
         else:
 
@@ -672,10 +663,15 @@ class PatternSolver:
                 print("Input set is found in the global DB")
                 print("Pulling Set's data from the DB...")
             self.nodes_found_in_gdb = 1
-            set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
-            self.uniques = set_data["unique_nodes"]
-            self.redundants = set_data["redundant_nodes"]
-            self.redundant_hits = set_data["redundant_hits"]
+            if db_adaptor is None:
+                self.uniques = -1
+                self.redundants = -1
+                self.redundant_hits = -1
+            else:
+                set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
+                self.uniques = set_data["unique_nodes"]
+                self.redundants = set_data["redundant_nodes"]
+                self.redundant_hits = set_data["redundant_hits"]
 
 
         str_satisfiable = "Not satisfiable."
