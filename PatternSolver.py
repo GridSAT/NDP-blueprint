@@ -349,7 +349,7 @@ class PatternSolver:
 
         db_adaptor = DbAdapter() if self.use_db_adaptor else None
         try:
-            squeue = SuperQueue.SuperQueue(use_runtime_db=self.use_runtime_db, problem_id=cnf_set.get_hash().hex())
+            squeue = SuperQueue.SuperQueue(name=name, use_runtime_db=self.use_runtime_db, problem_id=cnf_set.get_hash().hex())
             squeue.insert(cnf_set)
             nodes_children[cnf_set.id] = []
 

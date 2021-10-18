@@ -5,6 +5,8 @@
 # Simply Efficient. is a trademark of EasyXPS, Inc.
 #
 
+import hashlib
+import re
 import time
 import Set
 from DbAdaptor import DbAdapter
@@ -23,7 +25,7 @@ class SuperQueue:
     db = None
     use_runtime_db = False
 
-    def __init__(self, unique_queue=False, use_runtime_db=False, problem_id=PROBLEM_ID):
+    def __init__(self, name="", unique_queue=False, use_runtime_db=False, problem_id=PROBLEM_ID):
 
         self.unique_queue = unique_queue
         if unique_queue:
@@ -33,7 +35,7 @@ class SuperQueue:
             self.objqueue = deque()   # queue of objects
             self.idsqueue = deque()   # queue of objects ids
 
-        self.table_name = "queue_{}_{}".format(problem_id, str(time.time()).replace(".", ""))
+        self.table_name = "queue_" + hashlib.sha224("{}_{}_{}".format(re.sub(r'[\(\)\{\}# ]', '', name), problem_id, str(time.time()).replace(".", "")).encode()).hexdigest()
         self.use_runtime_db = use_runtime_db
         if use_runtime_db:
             self.db = DbAdapter()

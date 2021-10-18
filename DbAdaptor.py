@@ -272,7 +272,12 @@ class DbAdapter:
             self.conn.commit()
         except (Exception, psycopg2.DatabaseError) as error:
             logger.error("DB Error: " + str(error))
-            success = False
+            #
+            # ! TODO: NEED TO GET FIXED
+            # for now we just ignore KEY VIOLATION and skip
+            #
+            self.conn.rollback()
+            success = True
 
         return success
 
