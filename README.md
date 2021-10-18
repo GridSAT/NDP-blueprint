@@ -84,6 +84,7 @@ The solver main process will connect automatically to the head node and use the 
 Some helpers to easily run the processes and environments.
 
 ```bash
+
 # .bin/ray.sh
 sudo su - easyxps
 
@@ -98,4 +99,11 @@ ssh -i $HOME/.ssh/AWS.pem "node$1" -t .bin/ray-auto.sh
 
 # run and log unbuffered (need expect-dev installed)
 CORES="0001"; BITS="14"; ( echo "START: `date`"; echo ""; unbuffer python3 main.py -v -d inputs/Multi"$BITS"bit.txt -m lou -t $CORES 2>/dev/null ; echo "" ; echo "ENDE: `date`" ) | tee logs/$(date "+%Y-%m-%d")_Multi"$BITS"bit-$CORES-Cores.txt
+
+# run and start on Node1
+cd $HOME/Workspace/off-limits; source __venv__/bin/activate ; PATH=$PATH:/home/xps/Workspace/off-limits/bin ray-auto.sh head node1 8
+
+# run and start on a Node
+cd $HOME/Workspace/off-limits; source __venv__/bin/activate ; PATH=$PATH:/home/xps/Workspace/off-limits/bin ray-auto.sh node node1 22
+
 ```
