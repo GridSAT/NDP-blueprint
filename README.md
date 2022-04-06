@@ -1,4 +1,4 @@
-# NasserSatSolver-Python
+# NDP-blueprint
 
 ### Installation
 
