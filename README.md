@@ -2,7 +2,7 @@
 
 ### Installation
 
-##### Prepare system virtualenv
+##### Prepare system virtual environment (virtualenv)
 
 On ubuntu run as root
 
@@ -10,7 +10,7 @@ On ubuntu run as root
 apt install python3-pip libpq-dev
 ```
 
-##### Create virtualenv
+##### Create virtual environment (virtualenv)
 
 Log-in as user and run
 
@@ -21,7 +21,7 @@ virtualenv pattern_solvers
 ```
 
 
-### Activate and update virtualenv
+### Activate and update virtual environment (virtualenv)
 
 Login as user and run
 
