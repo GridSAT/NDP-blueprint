@@ -1,7 +1,7 @@
 <!--
 #	InputReader.py
 #
-#	Non-Deterministic Processor (NDP)
+#	Non-Deterministic Processor (NDP) blueprint
 #	Copyright (c) 2022 GridSAT Stiftung
 #
 #	This program is free software: you can redistribute it and/or modify
