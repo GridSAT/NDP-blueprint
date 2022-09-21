@@ -1,7 +1,7 @@
 <!--
 #	DbAdaptor.py
 #
-#	Non-Deterministic Processor (NDP)
+#	Non-Deterministic Processor (NDP) blueprint
 #	Copyright (c) 2022 GridSAT Stiftung
 #
 #	This program is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 #	GridSAT Stiftung - Georgstr. 11 - 30159 Hannover - Germany - info@gridsat.io
 #
 -->
+
 import time
 import psycopg2
 from configs import *
