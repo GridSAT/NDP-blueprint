@@ -10,4 +10,4 @@ liberapay: # Replace with a single Liberapay username
 issuehunt: # Replace with a single IssueHunt username
 otechie: # Replace with a single Otechie username
 lfx_crowdfunding: # Replace with a single LFX Crowdfunding project-name e.g., cloud-foundry
-custom: ['href="https://www.paypal.com/donate/?hosted_button_id=XD3VJ885CDDZS" target="_blank" rel="noopener">paypal@gridsat.io', 'https://gridsat.io/wp-content/uploads/2022/08/GridSAT-BTC.png']
+custom: 'href="https://www.paypal.com/donate/?hosted_button_id=XD3VJ885CDDZS" target="_blank" rel="noopener">paypal@gridsat.io', 'https://gridsat.io/wp-content/uploads/2022/08/GridSAT-BTC.png'
