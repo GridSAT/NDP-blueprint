@@ -1,5 +1,5 @@
 <!--
-#	README.md
+#	Clause.py
 #
 #	Non-Deterministic Processor (NDP)
 #	Copyright (c) 2022 GridSAT Stiftung
