@@ -25,7 +25,7 @@
 
 ##### Prepare system virtual environment (virtualenv)
 
-On ubuntu run as root
+On linux run as root
 
 ```bash
 apt install python3-pip libpq-dev
