@@ -28,7 +28,7 @@
 
 ##### Prepare system virtualenv
 
-On ubuntu run as root
+On linux run as root
 
 ```bash
 apt install python3-pip libpq-dev sysstat
@@ -39,9 +39,9 @@ apt install python3-pip libpq-dev sysstat
 Log-in as user and run
 
 ```bash
-cd /path/pattern_solvers
+cd /path/YourDirectory
 
-virtualenv pattern_solvers
+virtualenv myDirectory
 ```
 
 
@@ -50,13 +50,16 @@ virtualenv pattern_solvers
 Login as user and run
 
 ```bash
-cd /path/pattern_solvers
+cd /path/myDirectory
 
-source pattern_solvers/bin/activate
+source YourDirectory/bin/activate
 
 pip install -r requirements
 ```
 
+### Install Ray
+
+https://github.com/ray-project/ray
 
 ### Startup the RAY nodes to allow multi-processing on cluster
 
@@ -87,24 +90,24 @@ To add more worker nodes just run same on additional nodes
 ### Run solver
 
 ```bash
-python3 main.py -v -d inputs/Multi11bit.txt -m lou -t 8
+python3 main.py -v -d inputs/[CNF] -m lou -t 8
 ```
 
-The solver main process will connect automatically to the head node and use the workers as given.
+The main process connects automatically to the head node and uses workers as available.
 
 
 
 ### Starter tools
 
-Some helpers to easily run the processes and environments.
+Some helpers to easily run the processes and environments (e.g. AWS):
 
 ```bash
 
 # .bin/ray.sh
-sudo su - easyxps
+sudo su - [user_name]
 
 # .bin/ray-auto.sh
-sudo -u easyxps -i /bin/bash -i -c ray-auto.sh
+sudo -u [user_name] -i /bin/bash -i -c ray-auto.sh
 
 # .bin/node.sh
 ssh -i $HOME/.ssh/AWS.pem "node$1"
@@ -115,10 +118,11 @@ ssh -i $HOME/.ssh/AWS.pem "node$1" -t .bin/ray-auto.sh
 # run and log unbuffered (need expect-dev installed)
 CORES="0001"; BITS="14"; ( echo "START: `date`"; echo ""; unbuffer python3 main.py -v -d inputs/Multi"$BITS"bit.txt -m lou -t $CORES 2>/dev/null ; echo "" ; echo "ENDE: `date`" ) | tee logs/$(date "+%Y-%m-%d")_Multi"$BITS"bit-$CORES-Cores.txt
 
-# run and start on Node1
-cd $HOME/Workspace/off-limits; source __venv__/bin/activate ; PATH=$PATH:/home/xps/Workspace/off-limits/bin ray-auto.sh head node1 8
+# run and start on [HEADNODE]
+cd $HOME/myDirectory; source __venv__/bin/activate ; PATH=$PATH:/home/myDirectory/bin ray-auto.sh [HEADNODE] 8
 
-# run and start on a Node
-cd $HOME/Workspace/off-limits; source __venv__/bin/activate ; PATH=$PATH:/home/xps/Workspace/off-limits/bin ray-auto.sh node node1 22
+# run and start on a [NODE]
+cd $HOME/myDirectory; source __venv__/bin/activate ; PATH=$PATH:/home/myDirectory/bin ray-auto.sh [NODE] 22
 
 ```
+
