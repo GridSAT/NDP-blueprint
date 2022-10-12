@@ -21,15 +21,19 @@
 #
 -->
 
+from audioop import mul
+from copy import deepcopy
 import os,sys
 import time
 import argparse, textwrap
+from Multiply import Multiply
 from Set import *
 from Clause import *
 from PatternSolver import *
 from InputReader import InputReader
 import configs
 import traceback
+from Factorizer import Factorizer
 
 # todo: 
 # - Handle if input has [x, -x]. What I did now is to normalize the clause once it get read. However, this will not enable us to 
@@ -72,7 +76,28 @@ def Main(args):
     try:
         input_reader = InputReader(input_type, input_content)
         CnfSet = input_reader.get_cnf_set()
+
+        # Tasks: Factorization
+        if args.factorize:
+            fact = Factorizer()
+            if not fact.preprocess_set(CnfSet):
+                args.factorize = False
         
+        if args.multiply:
+            mul = Multiply()
+            if not mul.preprocess_set(CnfSet, args.multiply[0], args.multiply[1]):
+                args.multiply = False
+                sys.exit(0)
+
+            # check if any clause evaluated to False afer substitution 
+            for cl in CnfSet.clauses:
+                if cl.value == False:
+                    print("The input set is NOT satisfiable with input factors.")
+                    print(f"The input numbers {args.multiply[0]} and {args.multiply[1]} can't be multiplied on the input CNF")
+                    sys.exit(0)
+
+        # copy the cnf to be used in verification step if needed as the CNF will be subject to rename and manipulation later.
+        originalCnf = deepcopy(CnfSet)
         # start processing the root set
         if len(CnfSet.clauses) > 0 or CnfSet.value != None:
             PAT = PatternSolver(args=args, problem_id=CnfSet.get_hash().hex())
@@ -96,11 +121,7 @@ def Main(args):
 
             # verify the solution
             if args.verify and PAT.solution:
-                if args.line_input: original_input = args.line_input
-                else: original_input = open(input_content.name, 'r')
-                input_reader = InputReader(input_type, original_input)
-                CnfSet = input_reader.get_cnf_set()
-                if PAT.verify_solution(CnfSet, PAT.solution):
+                if PAT.verify_solution(originalCnf, PAT.solution):
                     logger.info("The solution is VERIFIED!")
                 else:
                     logger.info("The solution is NOT correct! ****")
@@ -121,6 +142,7 @@ if __name__ == "__main__":
     group1.add_argument("-v", "--verbos", help="Verbos", action="store_true")
     group1.add_argument("-vv", "--very-verbos", help="Very verbos", action="store_true")
     group1.add_argument("-q", "--quiet", help="Quiet mode. No stdout output.", action="store_true")
+    group1.add_argument("-qn", "--quiet-but-unique-nodes", help="Quiet mode. Except outputting number of unique nodes.", action="store_true")
     group2 = parser.add_mutually_exclusive_group(required=True)
     group2.add_argument("-l", "--line-input", type=str, help="Represent the input set in one line. Format: a|b|c&d|e|f ...")
     group2.add_argument("-lf", "--line-input-file", type=argparse.FileType('r'), help="Represent the input set in one line stored in a file. Format: a|b|c&d|e|f ...")
@@ -134,6 +156,11 @@ if __name__ == "__main__":
     parser.add_argument("-rdb", "--use-runtime-db", help="Use database for set lookup in table established only for the current cnf", action="store_true")
     parser.add_argument("-gdb", "--use-global-db", help="Use database for set lookup in global sets table", action="store_true")
     parser.add_argument("-gnm", "--gdb-no-mem", help="Don't load hashes from global DB into memory. Use this only if gdb gets huge and doesn't fit in memory. (slower)", action="store_true")
+    parser.add_argument("-z", "--sort-by-size", help="Always sort clauses by size in ascending order.", action="store_true")
+    parser.add_argument("-thief", "--thief-method", help="Always sort clauses by length and initial index.", action="store_true")
+    parser.add_argument("-fact", "--factorize", help="Factorize a number.", action="store_true")
+    parser.add_argument("-mult", "--multiply", nargs=2, type=int, help="Multiply two numbers.")
+    
     parser.add_argument("-m", "--mode", help=textwrap.dedent('''Solution mode. It's either:
     [LO condition is where all variables appear in the ascending order]
     flo: Linearily ordered, where all nodes in the tree will be brought to L.O. condition. (default)
@@ -159,6 +186,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if args.quiet_but_unique_nodes:
+        args.quiet = True
+        
     if args.quiet:
         logger.setLevel(logging.CRITICAL)
     
@@ -217,6 +247,9 @@ if __name__ == "__main__":
         parser.error('-gnm/--gdb-no-mem MUST be used with -gdb/--use-global-db option')
 
 
+    if args.multiply and ((args.multiply[0] <= 1) or (args.multiply[1] <= 1)):
+        parser.error('-mult/--multiply option MUST be used with integers > 1')
+
     if args.verbos:
         logger.setLevel(logging.INFO)
     elif args.very_verbos:
@@ -226,5 +259,5 @@ if __name__ == "__main__":
 
     Main(args)
     
-    print('script took %.3f seconds' % (time.time() - start_time))
+    logger.info('script took %.3f seconds' % (time.time() - start_time))
 

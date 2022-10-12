@@ -271,7 +271,7 @@ class PatternSolver:
             self.db_adaptor.gs_update_redundant_times(self.global_table_name, redundant_times, red_id)
 
 
-    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", qu=None):
+    def process_nodes_queue(self, cnf_set, input_mode, dot, generate_threads=False, name="main", qu=None, sort_by_size=False, thief_method=False):
 
         nodes_children = {}
         is_satisfiable = False
@@ -307,7 +307,7 @@ class PatternSolver:
             if self.args.use_global_db and self.is_set_in_gdb(cnf_set.get_hash(), db_adaptor):
                 (s1, s2) = self.get_children_from_gdb(cnf_set.get_hash(), db_adaptor)
                 if s1 != None or s2 != None:
-                    print("children pulled from gdb")
+                    logger.info("children pulled from gdb")
                     self.nodes_found_in_gdb += 1
                     children_pulled_from_gdb = True
             
@@ -327,13 +327,11 @@ class PatternSolver:
                         # sort by key
                         solution = dict(sorted(solution.items()))
                         if self.args.verbos:
-                            print()
-                            print(f"Process '{name}' found the solution!")
-                            print()
+                            logger.info(f"\nProcess '{name}' found the solution!\n")
                 
                 else:
                     if not children_pulled_from_gdb:
-                        child.to_lo_condition(input_mode)
+                        child.to_lo_condition(input_mode, sort_by_size, thief_method)
                         child_hash = child.get_hash(force_recalculate=True)
                     
                     # if chid pulled from gdb, no need to recompute the hash to save time
@@ -354,8 +352,9 @@ class PatternSolver:
                     nodes_children[cnf_set.id].append(child.id)
 
                     if self.args.output_graph_file:
-                        dot.node(child.id.hex(), child_str_before + "\\n" + child_str_after + "\\n" + f"fnm = {child.final_names_map}" +
-                         "\\n" + f"ov = {child.original_values}" + "\\n" + f"sol = {child.evaluated_vars}", color='black')
+                        #dot.node(child.id.hex(), child_str_before + "\\n" + child_str_after, color='black')
+                        dot.node(child.id.hex(), child_str_before + "\\n" + child_str_after + "\\n" + f"fnm = {child.final_names_map}" + "\\n" + \
+                        f"ov = {child.original_values}" + "\\n" + f"sol = {child.evaluated_vars}, highest occuring var = {child.highest_occurring_var}", color='black')
                         dot.edge(cnf_set.id.hex(), child.id.hex())
 
                 elif child.status == NODE_REDUNDANT:
@@ -397,33 +396,31 @@ class PatternSolver:
             # if number of running threads less than limit and less than queue size, create a new thread here and call process_nodes_queue
             if generate_threads and (len(self.threads) < self.max_threads) and (self.max_threads == squeue.size()):
                 generate_threads = False
-                print()
+                logger.info("\n")
                 threads_to_create = self.max_threads - len(self.threads)
                 #mp.set_start_method('spawn')
                 
                 for i in range(0, threads_to_create):
                     cnf_set = squeue.pop()
                     mpqueue = mp.Queue(1024*1024*1024)
-                    T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}', mpqueue), name=f'Process #{i}')
+                    T = mp.Process(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False, f'Process #{i}', mpqueue, sort_by_size, thief_method), name=f'Process #{i}')
                     #T = threading.Thread(target=self.process_nodes_queue, args=(cnf_set, input_mode, dot, False,f'Thread #{i}'), name=f'Thread #{i}')
                     T.qu = mpqueue
                     T.node = cnf_set
                     self.threads.append(T)
 
                 for i in range(0, threads_to_create):
-                    print(f"Creating process {i}")
+                    logger.info(f"Creating process {i}")
                     self.threads[i].start()
 
                 i = 0
                 while self.threads:
                     try:
                         i = i % len(self.threads)
-                        process_is_satisfiable, process_nodes_children, process_solution = self.threads[i].qu.get(False)
-                        print()
-                        print(f"{self.threads[i].name} queue is retrieved.")   
-                        self.threads[i].join()
-                        print()
-                        print(f"{self.threads[i].name} finished!")
+                        process_is_satisfiable, process_nodes_children, process_solution = self.threads[i].qu.get(False)                        
+                        logger.info(f"\n{self.threads[i].name} queue is retrieved.")   
+                        self.threads[i].join()                        
+                        logger.info(f"\n{self.threads[i].name} finished!")
 
                         # in case the child process exited before it solve the problem, and get the main process to solve it
                         if process_nodes_children == None and not process_solution:
@@ -442,7 +439,7 @@ class PatternSolver:
                             if process_solution:
                                 solution = process_solution
                                 if self.args.exit_upon_solving:
-                                    print("Terminating all processes....")
+                                    logger.info("Terminating all processes....")
                                     for t in self.threads:
                                         try:
                                             t.terminate()
@@ -457,21 +454,18 @@ class PatternSolver:
                         time.sleep(1)                        
                         i += 1
                                         
-                print()
-                print("All processes are completed!")
+                logger.info("\nAll processes are completed!")
                 
         
         if qu:
             qu.put((is_satisfiable, nodes_children, solution), False)
-            print()
-            print(f"Process {name} data is sent to the main process")
+            logger.info(f"\nProcess {name} data is sent to the main process")
         else:
             self.is_satisfiable = is_satisfiable
             self.nodes_children = nodes_children
             self.solution       = solution
 
-        print()
-        print(f"Process {name} is completed!")
+        logger.info(f"\nProcess {name} is completed!")
         
                     
 
@@ -493,7 +487,7 @@ class PatternSolver:
         vars = root_set.get_variables()
         root_set.original_values = dict(zip(vars, vars))
 
-        root_set.to_lo_condition(self.args.mode)
+        root_set.to_lo_condition(self.args.mode, self.args.sort_by_size, self.args.thief_method)
         setafterhash = root_set.get_hash(force_recalculate=True)
         root_set.id = setafterhash
 
@@ -527,24 +521,26 @@ class PatternSolver:
             # I used a queue to pass the result of each process at the end of its execution. This worked very well!
 
             if self.max_threads:
-                print(f"Number of forked process = {self.max_threads}")            
+                logger.info(f"Number of forked process = {self.max_threads}")            
             
             # main function to process the root node
-            self.process_nodes_queue(root_set, input_mode, dot, bool(self.max_threads))
+            self.process_nodes_queue(root_set, input_mode, dot, bool(self.max_threads), sort_by_size=self.args.sort_by_size, thief_method=self.args.thief_method)
             
             if self.max_threads:
-                print("Multi process execution is finished!")
-                print("Completed in %.3f seconds" % (time.time() - start_time))
+                logger.info("Multi process execution is finished!")
 
             ### Solving the set is done, let's get the number of unique and redundant nodes
-            if self.args.verbos:
-                print()
-                print("=== Set has been solved successfully.")                
+            if self.args.verbos:                
+                logger.info("\n=== Set has been solved successfully.")                
 
             if not self.args.no_stats:
                 if self.args.verbos:
-                    print("=== Getting statistics of all subgraphs...")
+                    logger.info("=== Getting statistics of all subgraphs...")
 
+                logger.info(f"Current recursion limit = {sys.getrecursionlimit()}")
+                logger.info(f"Setting recursion limit to {sys.getrecursionlimit() * 2}")
+
+                sys.setrecursionlimit(sys.getrecursionlimit() * 2)
                 root_redundants = self.construct_graph_stats(root_set.id, self.nodes_children)
                 
                 self.uniques = self.nodes_stats[root_set.id][UNIQUE_COUNT]
@@ -552,26 +548,25 @@ class PatternSolver:
                 self.redundant_hits = self.nodes_stats[root_set.id][REDUNDANT_HITS]
 
                 if self.args.verbos:
-                    print("=== Done getting the statistics.")
+                    logger.info("=== Done getting the statistics.")
                 
                 if self.args.use_global_db:
                     if self.args.verbos:
-                        print("=== Saving the final result in the global DB...")
+                        logger.info("=== Saving the final result in the global DB...")
 
                     self.save_in_global_db(root_redundants)
             
         else:
             
             if self.args.verbos:                
-                print("Input set is found in the global DB")
-                print("Pulling Set's data from the DB...")
+                logger.info("Input set is found in the global DB")
+                logger.info("Pulling Set's data from the DB...")
             self.nodes_found_in_gdb = 1
             set_data = self.db_adaptor.gs_get_set_data(self.global_table_name, setafterhash)
             self.uniques = set_data["unique_nodes"]
             self.redundants = set_data["redundant_nodes"]
             self.redundant_hits = set_data["redundant_hits"]
 
-            
         str_satisfiable = "Not satisfiable."
         if self.is_satisfiable: str_satisfiable = "SATISFIABLE!"
         process = psutil.Process(os.getpid())
@@ -582,11 +577,47 @@ class PatternSolver:
         stats += '\\n' + "The input set is {0}".format(str_satisfiable)
         if self.is_satisfiable:
             stats += '\\n' + "The solution is {0}".format(self.solution)
-        if not self.args.no_stats:
-            stats += '\\n' + "Number of unique nodes: {0}".format(self.uniques)
+        
+        stats += '\\n' + f"Number of unique nodes: {len(self.nodes_children):,}"
+        if not self.args.no_stats:            
             stats += '\\n' + "Number of redundant subtrees: {0}".format(self.redundants)
             stats += '\\n' + "Number of redundant hits: {0}".format(self.redundant_hits)
             stats += '\\n' + "Number of nodes found in gdb: {0}".format(self.nodes_found_in_gdb)
+
+        if self.args.factorize and self.solution:
+            nbits = len(root_set.fact_num_bits)
+            factors_bits = [int(v) for v in self.solution.values()][:nbits]
+
+            # factors length in bits
+            f1len = root_set.fact1_len
+            f2len = root_set.fact2_len
+            
+            fact1 = int(''.join(str(i) for i in factors_bits[:f1len])[::-1], 2)
+            fact2 = int(''.join(str(i) for i in factors_bits[f1len:f1len+f2len])[::-1], 2)
+
+            if root_set.factorized_number == fact1 * fact2:
+                stats += '\\n' + f"Factorization solution is {root_set.factorized_number} = {fact1} x {fact2}"
+            else:
+                stats += '\\n' + f"Something is wrong. Probably a bug! Input = {root_set.factorized_number}, factors found are {fact1} and {fact2}"
+
+        elif self.args.factorize:
+            stats += '\\n' + f"The input number {root_set.factorized_number} is prime. No factors found!"
+
+
+        if self.args.multiply and self.solution:
+            result_bits_values = [int(self.solution[v]) for v in root_set.multiply_result_bits]
+            result = int(''.join(str(i) for i in result_bits_values)[::-1], 2)
+            
+            fact1 = self.args.multiply[0]
+            fact2 = self.args.multiply[1]
+            if result == fact1 * fact2:
+                stats += '\\n' + f"Multiplication solution is {fact1} x {fact2} = {result}"
+            else:
+                stats += '\\n' + f"Something is wrong. Probably a bug! Inputs {fact1} and {fact2} don't multiply to {result}!"
+
+        elif self.args.multiply:
+            stats += '\\n' + f"The input numbers {self.args.multiply[0]} and {self.args.multiply[1]} can't be multiplied on the input CNF."
+
         stats += '\\n' + "Current memory usage: {0}".format(sizeof_fmt(memusage))
 
         # draw graph
@@ -594,9 +625,12 @@ class PatternSolver:
             dot.node("stats", stats, shape="box", style="dotted")
             self.draw_graph(dot, self.args.output_graph_file)
 
+        if self.args.quiet_but_unique_nodes:
+            print(self.uniques)
+
         if self.args.quiet == False:
-            print("\nExecution finished!")
-            print(stats.replace("\\n", "\n"))
+            logger.info("\nExecution finished!")
+            logger.info(stats.replace("\\n", "\n"))
 
 
     # format the solution for storage
