@@ -27,6 +27,12 @@
 # DIMAC: DIMACS (the Center for Discrete Mathematics and Theoretical Computer Science) at Rutgers university format
 # Information about the format can be found at https://people.sc.fsu.edu/~jburkardt/data/cnf/cnf.html
 
+# This is InputReader class
+# SLF: Single Line Format, is where the input CNF in represented in one line only in the form:
+#    a | b | c & d | -e | f & ...
+# DIMAC: DIMACS (the Center for Discrete Mathematics and Theoretical Computer Science) at Rutgers university format
+# Information about the format can be found at https://people.sc.fsu.edu/~jburkardt/data/cnf/cnf.html
+
 import os
 import sys
 from configs import *
@@ -136,9 +142,14 @@ class InputReader:
             clauses_set.append(frozenset(clause))
 
         # create clauses objects
+        i = 1
         for cl in clauses_set:
-            # a clause gets sorted automatically when the clause object is created
-            CnfSet.add_clause(Clause(cl))
+            # a clause gets sorted automatically when the clause object is created            
+            c = Clause(cl)
+            c.initial_index = i
+            CnfSet.add_clause(c)
+            i += 1
+
 
         dimacs_file.close()
         return CnfSet

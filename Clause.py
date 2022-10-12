@@ -21,12 +21,13 @@
 #
 -->
 
-
 class Clause:
     
     def __init__(self, inp):
         self.raw = []
         self.value = None
+        self.substituted = False # a flag set to true if a var in this clause is substituted with a bool value
+        self.initial_index = 0
 
         if type(inp) is list or type(inp) is frozenset:
             self.raw = list(inp)
@@ -55,9 +56,9 @@ class Clause:
             if self.raw[i] == other.raw[i]:
                 continue
 
-            # only if two number with different signs, ex. -5 and 5, are compared, consider -5 is less
+            # only if two number with different signs, ex. -5 and 5, are compared, consider +5 is less
             if self.raw[i] != other.raw[i] and abs(self.raw[i]) == abs(other.raw[i]):
-                return self.raw[i] < other.raw[i]
+                return self.raw[i] > other.raw[i]
             
             # do absolute value comparison, so that -5 is greater than 3, for example.
             return abs(self.raw[i]) <= abs(other.raw[i])

@@ -68,6 +68,9 @@ SUCCESS = 1
 DB_UNIQUE_VIOLATION = -1
 DB_UNKNOWN_ERROR = -2
 
+NOT_SABRY_FORMAT = -1
+INCOMPATIBLE_TREE = -2
+
 
 # generate problem ID
 PROBLEM_ID = str(uuid.uuid4()).replace('-', '_')

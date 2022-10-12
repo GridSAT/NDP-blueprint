@@ -25,6 +25,7 @@ import hashlib
 import ast
 from configs import *
 from Clause import *
+import functools 
 
 class Set:
     
@@ -38,6 +39,7 @@ class Set:
         self.final_names_map = []
         self.evaluated_vars = {}
         self.original_values = {}
+        self.highest_occurring_var = 1
 
         # create a Set object from input string
         if str_input:
@@ -56,8 +58,12 @@ class Set:
                     clauses_set.append(s)
 
                 # create clauses objects
+                i = 1
                 for cl in clauses_set:
-                    self.add_clause(Clause(cl))
+                    c = Clause(cl)
+                    c.initial_index = i
+                    self.add_clause(c)
+                    i += 1
 
             except Exception as e:
                 print("Error: " + str(e))
@@ -152,16 +158,18 @@ class Set:
             return abs(cl.raw[0])
 
         if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
-            self.clauses.sort(key=sort_by_var)
+            self.clauses.sort()
         #self.clauses.sort()
 
     def rename_vars(self):
         # start from 1
         id = 1
         names_map = {}
+        # keep track of the highest occurring var
+        highest_occurring_vars_map = {}  
         for cl in self.clauses:
             for i in range(0, len(cl.raw)):
-                sign = (int) (cl.raw[i] / abs(cl.raw[i]))
+                sign = -1 if cl.raw[i] < 0 else 1
                 new = names_map.get(abs(cl.raw[i]), None)
                 if new == None:
                     new = id
@@ -169,7 +177,10 @@ class Set:
                     id = id + 1
                     
                 cl.raw[i] = new * sign
+                # calculate highest occurance var (should we count abs value?)
+                highest_occurring_vars_map[cl.raw[i]] = highest_occurring_vars_map.get(cl.raw[i], 0) + 1
         
+        self.highest_occurring_var = max(highest_occurring_vars_map, key=highest_occurring_vars_map.get)
         var_positions = list(names_map.keys())
         
         # if the set already gone through a round of rename before
@@ -250,12 +261,18 @@ class Set:
         if len(self.clauses) > 0 and len(self.clauses[0].raw) > 0:
             self.clauses.sort(key=clause_len)
 
-
+    
+    def sort_clauses_by_len_and_initial_index(self):
+        self.clauses.sort(key=lambda cl: (len(cl.raw), cl.initial_index))
 
     # convert to L.O. condition
-    def to_lo_condition(self, mode=MODE_LO):
+    def to_lo_condition(self, mode=MODE_LO, sort_by_size=False, thief_method=False):
+        
+        # used in Thief method, sort by length,initial index
+        if thief_method:
+            self.sort_clauses_by_len_and_initial_index()
 
-        if mode == MODE_FLOP:
+        if mode == MODE_FLOP or sort_by_size:
             # bring unit clauses to the front of the set
             # self.place_unit_clauses_first()
             self.sort_clauses_by_length()
@@ -274,6 +291,38 @@ class Set:
             self.rename_vars()
             
 
+    # substitue the value of a var or more in the set.
+    # vars map is a map of var name and value, such as {1: True, 2: False, 6: True}
+    def substitute_vars(self, vars_map):
+        vars = set(vars_map.keys())
+        i = 0
+        while i < len(self.clauses):
+            cl = self.clauses[i]
+            
+            # does the clause has any of the evaluated vars?
+            cl_vars = vars & set([abs(a) for a in cl.raw])
+            
+            if len(cl_vars) == 0:
+                i += 1
+                continue
+
+            cl_popped = False
+            clraw = list(cl.raw) # object copy
+            for v in clraw:
+                # if the clause evaluates to True, remove it
+                if (abs(v) in cl_vars) and ((vars_map[abs(v)] == True and v > 0) or (vars_map[abs(v)] == False and v < 0)):
+                    self.clauses.pop(i)
+                    cl_popped = True
+                    break
+                elif abs(v) in cl_vars:
+                    # for left branch, remove the var from the clause
+                    cl.raw.pop(cl.raw.index(v))
+                    if len(cl.raw) == 0:
+                        # here it's unit clause that has a False value
+                        cl.value = False
+
+            if not cl_popped:
+                i += 1
 
     # evaluate the set and produce two branches
     def evaluate(self):
@@ -284,6 +333,7 @@ class Set:
 
         # always pick the left most variable and evaluate based on it.
         pivot = abs(self.clauses[0].raw[0])
+        #pivot = self.highest_occurring_var
 
         # Left Set: iterate through clauses, for each clause check if it has pivot, set it to True. If it has -pivot, remove the variable from the set
         # Right Set: opposite of left
@@ -294,6 +344,7 @@ class Set:
         right_clauses = []
         for c in self.clauses:
             cl = Clause(c.raw)
+            cl.initial_index = c.initial_index
             # remove clause, i.e. set the var to true
             if pivot in cl.raw:
                 # for left branch, the clause will be set to true. i.e. removed. (will not be added to left_clauses)
@@ -301,7 +352,9 @@ class Set:
                 # for right branch, remove the var from the clause
                 cl.raw.pop(cl.raw.index(pivot))
                 if len(cl.raw) > 0:
-                    right_clauses.append(Clause(cl.raw))
+                    #ncl = Clause(cl.raw)
+                    cl.substituted = True
+                    right_clauses.append(cl)
                 # if it's the last variable, then the clause will be evaluated to False, then all the Set will be False
                 else:
                     right_set.set_value(False)
@@ -312,14 +365,17 @@ class Set:
                 # for left branch, remove the var from the clause
                 cl.raw.pop(cl.raw.index(-pivot))
                 if len(cl.raw) > 0:
-                    left_clauses.append(Clause(cl.raw))
+                    cl.substituted = True
+                    left_clauses.append(cl)
                 # if it's the last variable, then the clause will be evaluated to False
                 else:
                     left_set.set_value(False)
 
             else:
-                left_clauses.append(Clause(cl.raw))
-                right_clauses.append(Clause(cl.raw))
+                lcl = Clause(cl.raw)
+                lcl.initial_index = c.initial_index
+                left_clauses.append(lcl)
+                right_clauses.append(cl)
         
         
         left_set.clauses = left_clauses
@@ -337,13 +393,13 @@ class Set:
             vars = sset.get_variables()
             sset.original_values = {v:self.original_values[self.final_names_map[v-1]] for v in vars}
 
-        left_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[pivot-1]]:True}
-        right_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[pivot-1]]:False}
+        left_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[abs(pivot)-1]]:True}
+        right_set.evaluated_vars = {**self.evaluated_vars, self.original_values[self.final_names_map[abs(pivot)-1]]:False}
 
         return (left_set, right_set)
 
 
-    def to_string(self, pretty=True):
+    def to_string(self, pretty=True, only_evaluated_clauses=False):
 
         # if the set evaluates to a value
         if self.value != None:
@@ -357,8 +413,11 @@ class Set:
         res_arr = []
         for cl in self.clauses:
             if len(cl.raw):
+                if only_evaluated_clauses and not cl.substituted:
+                    continue
+
                 if pretty:
-                    res_arr.append('(' + ' | '.join(map(str, cl.raw)) + ')')
+                    res_arr.append('(' + ' | '.join(map(str, cl.raw)) + f')[{cl.initial_index}]')
                 else:                    
                     res_arr.append('|'.join(map(str, cl.raw)))
 
