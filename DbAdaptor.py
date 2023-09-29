@@ -1,4 +1,3 @@
-<!--
 #	DbAdaptor.py
 #
 #	Non-Deterministic Processor (NDP) - efficient parallel SAT-solver
@@ -19,7 +18,6 @@
 
 #	GridSAT Stiftung - Georgstr. 11 - 30159 Hannover - Germany - info@gridsat.io
 #
--->
 
 import time
 import psycopg2
