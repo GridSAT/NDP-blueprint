@@ -1,4 +1,3 @@
-<!--
 #	README.md
 #
 #	Non-Deterministic Processor (NDP) - efficient parallel SAT-solver
@@ -17,9 +16,8 @@
 #	You should have received a copy of the GNU Affero General Public License
 #	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#	GridSAT Stiftung - Georgstr. 11 - 30159 Hannover - Germany - info@gridsat.io
+#	GridSAT Stiftung - Georgstr. 11 - 30159 Hannover - Germany - ipfs: gridsat.eth/ - info@gridsat.io
 #
--->
 
 ### Installation
 
@@ -51,7 +49,7 @@ cd /path/pattern_solvers
 
 source pattern_solvers/bin/activate
 
-pip install -r requirements
+pip install -r requirements.txt
 ```
 
 
